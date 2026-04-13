@@ -1,12 +1,14 @@
+// pong.c
 #include <stdio.h>
 #include <string.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
+#include <unistd.h>
+#include <arpa/inet.h>
 
 int main() {
     int fd = socket(AF_INET, SOCK_DGRAM, 0);
 
     struct sockaddr_in server, client;
+    socklen_t len = sizeof(client);
 
     server.sin_family = AF_INET;
     server.sin_port = htons(9090);
@@ -14,15 +16,18 @@ int main() {
 
     bind(fd, (struct sockaddr*)&server, sizeof(server));
 
-    char buff[1024];
-    socklen_t len = sizeof(client);
+    int seq;
 
-    int n = recvfrom(fd, buff, sizeof(buff), 0,
-                     (struct sockaddr*)&client, &len);
+    while (1) {
+        int n = recvfrom(fd, &seq, sizeof(seq), 0,
+                         (struct sockaddr*)&client, &len);
 
-    buff[n] = '\0';
+        if (n <= 0) continue;
 
-    printf("Received: %s\n", buff);
+        printf("Received ping: %d\n", seq);
+
+        // send back (pong)
+        sendto(fd, &seq, sizeof(seq), 0,
+               (struct sockaddr*)&client, len);
+    }
 }
-
-///@note we can use accept and listen that is TCP protocol
