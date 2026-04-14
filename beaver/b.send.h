@@ -7,7 +7,10 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-int beaver_send(int fd, struct sockaddr_in *dst, uint32_t seq, uint32_t ack, uint8_t flags, const byte *payload, uint16_t plen){
+int beaver_send(int fd, struct sockaddr_in *dst, uint32_t seq, 
+                uint32_t ack, uint8_t flags, const byte *payload, 
+                uint16_t plen)
+{
     header_t hdr = {0};
     hdr.seq = seq;
     hdr.ack = ack;
