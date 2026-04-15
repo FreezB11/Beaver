@@ -19,16 +19,14 @@ int beaver_socket(int __domain){
 }
 
 // the send should be doing a send like of the total list 
-void beaver_send_stream(int fd, struct sockaddr_in *dst, 
-                        uint32_t seq, uint32_t ack, uint8_t flags, 
+void beaver_send_stream(int fd, struct sockaddr_in *dst,
                         const byte *stream, uint16_t stream_length)
 {
-    header_t hdr = {0};
-    hdr.seq = seq;
-    hdr.ack = ack;
-    hdr.flags = flags;
-    hdr.len = stream_length;
+    // we chunk the data here 
+}
 
-    byte buf[MAX_PAYLOAD + HDR_SIZE];
-    
+void beaver_recv_stream(int fd, struct sockaddr_in *src,
+                        byte *buffer, uint16_t buffer_length)
+{
+
 }
