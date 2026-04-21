@@ -7,13 +7,24 @@
 #include "b.recv.h"
 #include "b.send.h"
 
-#define IPV4 AF_INET
-#define IPV6 AF_INET6
+// #define IPV4 AF_INET
+// #define IPV6 AF_INET6
+
+typedef enum {
+    IPV4 = 4,
+    IPV6 = 6,
+} ip_version_t;
+
+typedef enum{
+    statefull,
+    stateless
+} conn_state_t;
 
 typedef struct beaver{
 
     //properties;
-
+    ip_version_t __version;
+    conn_state_t __state;
 }beaver;
 
 int beaver_init(beaver* beav, int __domain){

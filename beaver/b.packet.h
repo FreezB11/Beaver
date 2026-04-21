@@ -3,9 +3,10 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#include "misc/util.h"
+
 #define MAX_PAYLOAD 1024
 #define HDR_SIZE 13
-typedef uint8_t byte;
 
 #define SYN  (1 << 0)   // 00000001  open connection
 #define ACK  (1 << 1)   // 00000010  this packet has a valid ack field
@@ -14,11 +15,11 @@ typedef uint8_t byte;
 
 typedef struct header{
     // header
-    uint32_t seq; // this is the byte offset of where the chunk starts in the full stream
-    uint32_t ack;
+    u32 seq; // this is the byte offset of where the chunk starts in the full stream
+    u32 ack;
     uint8_t flags;
-    uint16_t len;
-    uint16_t checksum;
+    u16 len;
+    u16 checksum;
     //4+4+1+2+2 = 13;
 }header_t;
 
