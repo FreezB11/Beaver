@@ -797,15 +797,6 @@ typedef enum {
     QL_STREAM_TYPE_SERVER_UNI  = 0x03,  /* server-initiated unidirectional 2.1 */
 } ql_stream_type_t;
 
-/*
- * One contiguous ACK range: acknowledges all packets in
- * [largest − (count − 1), largest].
- */
-typedef struct {
-    ql_pkt_num_t  largest;
-    uint64_t      count;    /* number of contiguous packet numbers */
-} ql_ack_range_t;
-
 /* Full ACK state per packet-number space */
 typedef struct {
     ql_pkt_num_t   largest_recvd;          /* 19.3 Largest Acknowledged field */
