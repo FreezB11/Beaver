@@ -5,6 +5,7 @@
 #include "tp.test.h"
 #include "udp.test.h"
 #include "crypto.test.h"
+#include "cid.test.h"
 
 int ql_tests_run = 0;
 
@@ -96,6 +97,24 @@ int main(void){
     RUN_TEST(test_hp_different_samples_different_masks);
     RUN_TEST(test_hp_null_args_rejected);
     RUN_TEST(test_hp_rfc9001_vectors);
+
+    /* cid generate/cmp */
+    RUN_TEST(test_cid_generate_sets_len);
+    RUN_TEST(test_cid_generate_max_len);
+    RUN_TEST(test_cid_generate_zero_len);
+    RUN_TEST(test_cid_generate_rejects_over_max_len);
+    RUN_TEST(test_cid_generate_null_ptr_does_not_crash);
+    RUN_TEST(test_cid_generate_two_calls_differ);
+    RUN_TEST(test_cid_generate_zeroes_unused_tail_bytes);
+    RUN_TEST(test_cid_generate_not_all_zero_bytes);
+    RUN_TEST(test_cid_cmp_equal_cids);
+    RUN_TEST(test_cid_cmp_self);
+    RUN_TEST(test_cid_cmp_different_content_same_len);
+    RUN_TEST(test_cid_cmp_different_lengths_never_equal);
+    RUN_TEST(test_cid_cmp_zero_length_cids_equal);
+    RUN_TEST(test_cid_cmp_differs_only_in_last_byte);
+    RUN_TEST(test_cid_cmp_null_args);
+    RUN_TEST(test_cid_cmp_max_len_roundtrip);
 
     ql_test_summary();
     return 0;
