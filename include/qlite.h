@@ -1103,7 +1103,7 @@ typedef struct {
 } ql_sent_pkt_t;
 
 /**
- * CONGESTION CONTROL STATE  RFC 9002 §7
+ * CONGESTION CONTROL STATE  RFC 9002 7
  * NewReno by default; CUBIC can replace it.
  */
 typedef enum {
@@ -1119,7 +1119,7 @@ typedef struct {
     uint64_t       bytes_in_flight;    /* unacked in-flight bytes */
     uint64_t       recovery_start_pn;  /* pkt-num when recovery began */
 
-    /* RTT estimates RFC 9002 §5 */
+    /* RTT estimates RFC 9002 5 */
     uint64_t       latest_rtt_us;
     uint64_t       smoothed_rtt_us;    /* SRTT */
     uint64_t       rtt_var_us;         /* RTTVAR */
@@ -2373,7 +2373,7 @@ int ql_tp_decode(const uint8_t *buf, size_t len, ql_transport_params_t *out) {
 
 /*
  * ql_cid_generate — fills cid->data[0..len) with cryptographically
- * random bytes and sets cid->len. §5.1: len may be 0 (zero-length CID),
+ * random bytes and sets cid->len. 5.1: len may be 0 (zero-length CID),
  * up to QL_CID_MAX_LEN.
  *
  * Uses getrandom(2) where available (Linux), falling back to reading
@@ -2417,7 +2417,78 @@ int ql_cid_cmp(const ql_cid_t *a, const ql_cid_t *b){
     return (int)diff;
 }
 
-int ql_conn_init(ql_conn_t *conn, ql_role_t role, const ql_config_t *cfg);
+/*
+ * ql_conn_init — initialize a freshly allocated ql_conn_t.
+ *
+ *   - zero the whole struct (clears all state, timers, buffers, streams)
+ *   - set role (client/server)
+ *   - copy cfg into conn->cfg (transport params, TLS callbacks, tuning)
+ *   - generate our initial local CID (5.1) and register it as local_cids[0]
+ *   - initialize congestion control to RFC 9002 7.2 defaults
+ *
+ * Returns 0 on success, <0 (QLITE_ERR_*) on failure.
+ */
+int ql_conn_init(ql_conn_t *conn, ql_role_t role, const ql_config_t *cfg){
+    if(!conn || !cfg) return QLITE_ERR_ARGS;
+    memset(conn, 0, sizeof(*conn));
+    
+    conn->state = QL_CONN_IDLE;
+    conn->role = role;
+    conn->cfg = *cfg; /* struct copy: params + callbacks + tuning */
+    conn->fd = -1; /* no socket bound yet */
+
+    /* Local transport parameters start as what the caller configured;
+     * remote_tp is filled in once the peer's TP arrive over TLS. */
+    conn->local_tp = cfg->local_params;
+
+    /* 5.1 — generate our initial source connection ID and register it
+     * as the first (active) entry in the local CID table. */
+    ql_cid_generate(&conn->local_cid, QL_CID_MAX_LEN);
+    if (conn->local_cid.len == 0) return QLITE_ERR_INTERNAL;  /* RNG failed */
+
+    conn->local_cids[0].cid            = conn->local_cid;
+    conn->local_cids[0].sequence_num   = 0;
+    conn->local_cids[0].retire_prior_to = 0;
+    conn->local_cids[0].is_active       = true;
+    conn->local_cids[0].is_retired      = false;
+    conn->local_cid_count = 1;
+    conn->next_cid_seq    = 1;   /* next CID we issue will be seq 1 */
+
+    /* 2.1 — next stream IDs to allocate, one counter per (initiator, dir).
+     * Stream ID low bits: bit0 = initiator (0=client,1=server), bit1 = dir. */
+    conn->next_stream_id[QL_STREAM_TYPE_CLIENT_BIDI] = QL_STREAM_TYPE_CLIENT_BIDI;
+    conn->next_stream_id[QL_STREAM_TYPE_SERVER_BIDI] = QL_STREAM_TYPE_SERVER_BIDI;
+    conn->next_stream_id[QL_STREAM_TYPE_CLIENT_UNI]  = QL_STREAM_TYPE_CLIENT_UNI;
+    conn->next_stream_id[QL_STREAM_TYPE_SERVER_UNI]  = QL_STREAM_TYPE_SERVER_UNI;
+
+    /* 12.3 — packet number spaces start at 0; largest_recvd starts at
+     * "none received yet" so ACK logic doesn't treat pn 0 as already seen. */
+    for (int i = 0; i < QL_PN_SPACE_COUNT; i++) {
+        conn->next_pn[i]       = 0;
+        conn->largest_recvd[i] = QL_PKT_NUM_NONE;
+    }
+
+    /* RFC 9002 7.2 — initial congestion control state.
+     * initcwnd = min(10*max_datagram_size, max(2*max_datagram_size, 14720)),
+     * computed here using the conservative default MTU since the real
+     * path MTU isn't known before the handshake starts. */
+    uint64_t mtu = QL_PATH_MTU_DEFAULT;
+    uint64_t initcwnd = 10 * mtu;
+    if (initcwnd > 14720) initcwnd = 14720;
+    if (initcwnd < 2 * mtu) initcwnd = 2 * mtu;
+
+    conn->cc.state           = QL_CC_SLOW_START;
+    conn->cc.cwnd            = initcwnd;
+    conn->cc.ssthresh        = UINT64_MAX;   /* 7.2: no limit until first loss */
+    conn->cc.bytes_in_flight = 0;
+    conn->cc.min_rtt_us      = UINT64_MAX;   /* 5.2: unset until first sample */
+    conn->cc.rtt_sample_taken = false;
+    conn->cc.pto_count       = 0;
+
+    conn->sent_pkt_head = conn->sent_pkt_tail = conn->sent_pkt_count = 0;
+
+    return QLITE_OK;
+}
 
 #if defined(__cplusplus)
 } /* extern "C" */
