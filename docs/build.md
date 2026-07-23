@@ -178,10 +178,10 @@ Depends on: Phase 1 (varint, frame encode/decode for payload construction).
 | 2.5.1 | Long-header serialise | write first byte, version, DCID len, DCID, SCID len, SCID |
 | 2.5.2 | Initial-specific fields | token length + token, then payload length + pkt-num |
 | 2.5.3 | Short-header serialise | first byte, DCID, pkt-num |
-| 2.5.4 | `ql_pkt_encode()` | header → `ql_aead_seal()` → `ql_hp_protect()` |
+| 2.5.4 |[x] `ql_pkt_encode()` | header → `ql_aead_seal()` → `ql_hp_protect()` |
 | 2.5.5 | Long-header parse | read first byte, version, CID lengths, CIDs |
 | 2.5.6 | Short-header parse | read first byte, DCID (known length) |
-| 2.5.7 | `ql_pkt_decode()` | `ql_hp_remove()` → pkt-num decode → `ql_aead_open()` |
+| 2.5.7 |[x] `ql_pkt_decode()` | `ql_hp_remove()` → pkt-num decode → `ql_aead_open()` |
 | 2.5.8 | Version Negotiation parse | no crypto; list of supported versions |
 
 **Test gate 2.5:** Encode a synthetic Initial packet with known payload, decode it, verify payload and all header fields match.  Decode with wrong key, verify `QLITE_ERR_CRYPTO`.  Test Version Negotiation parse from raw bytes.
