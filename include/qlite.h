@@ -179,6 +179,16 @@ typedef struct {
 #define QL_HP_SAMPLE_LEN     16
 #define QL_HP_SAMPLE_OFFSET   4   /* bytes after start of pkt-num field */
 
+/* 12.2 — Coalescing: max datagrams we'll pack before flushing */
+#define QL_MAX_COALESCE_PKTS    8
+
+/* Send ring sizes — must be powers of 2 */
+#define QL_SENT_PKT_MAX        4096   /* sent-packet tracking ring */
+#define QL_STREAM_BUF_SIZE     65536  /* per-stream tx/rx ring */
+#define QL_OUTBUF_SIZE         65536  /* assembled-datagram output queue */
+#define QL_CRYPTO_BUF_SIZE     16384  /* per-level CRYPTO reorder buffer */
+
+
 /* Server limits */
 #define QL_SERVER_MAX_CONNS    1024
 #define QL_MAX_CIDS            8      /* connection IDs we issue/track 5.1 */
@@ -256,6 +266,17 @@ typedef enum {
 
 /* Application-protocol error codes 20.2 — opaque 62-bit integer */
 typedef uint64_t ql_app_error_t;
+
+/* =========================================================================
+ * PACKET NUMBER SPACES  12.3 / 12.5
+ * ACK frames only acknowledge packets within the same space.
+ * ========================================================================= */
+typedef enum {
+    QL_PN_SPACE_INITIAL   = 0,
+    QL_PN_SPACE_HANDSHAKE = 1,
+    QL_PN_SPACE_APP       = 2,   /* 1-RTT / Application data */
+    QL_PN_SPACE_COUNT     = 3,
+} ql_pn_space_t;
 
 /**
  * @link: https://www.rfc-editor.org/rfc/rfc9000.html?#name-frame-types-and-formats
@@ -767,6 +788,469 @@ typedef struct {
     bool                has_preferred_addr;
     ql_preferred_addr_t preferred_addr;
 } ql_transport_params_t;
+
+typedef enum {
+    QL_STREAM_TYPE_CLIENT_BIDI = 0x00,  /* client-initiated bidirectional  2.1 */
+    QL_STREAM_TYPE_SERVER_BIDI = 0x01,  /* server-initiated bidirectional  2.1 */
+    QL_STREAM_TYPE_CLIENT_UNI  = 0x02,  /* client-initiated unidirectional 2.1 */
+    QL_STREAM_TYPE_SERVER_UNI  = 0x03,  /* server-initiated unidirectional 2.1 */
+} ql_stream_type_t;
+
+/*
+ * One contiguous ACK range: acknowledges all packets in
+ * [largest − (count − 1), largest].
+ */
+typedef struct {
+    ql_pkt_num_t  largest;
+    uint64_t      count;    /* number of contiguous packet numbers */
+} ql_ack_range_t;
+
+/* Full ACK state per packet-number space */
+typedef struct {
+    ql_pkt_num_t   largest_recvd;          /* 19.3 Largest Acknowledged field */
+    ql_pkt_num_t   largest_acked_sent;     /* last largest we put in an ACK frame */
+    uint64_t       ack_delay_us;           /* our local ACK delay to report */
+    ql_ack_range_t ranges[QL_ACK_RANGE_MAX];
+    int            range_count;
+    int            ack_eliciting_recvd;    /* count since last ACK sent */
+    bool           needs_ack;             /* true when we must send ACK soon */
+    uint64_t       ack_send_deadline_ms;  /* when we MUST send the ACK by */
+    /* 19.3.2 — ECN counts */
+    uint64_t       ecn_ect0;
+    uint64_t       ecn_ect1;
+    uint64_t       ecn_ce;
+    bool           ecn_enabled;
+} ql_ack_state_t;
+
+/* 3.1 — Sending stream states */
+typedef enum {
+    QL_TX_STREAM_READY      = 0,  /* created, data buffered, not yet sent */
+    QL_TX_STREAM_SEND       = 1,  /* STREAM frames being sent */
+    QL_TX_STREAM_DATA_SENT  = 2,  /* FIN sent, awaiting ACK */
+    QL_TX_STREAM_DATA_RCVD  = 3,  /* FIN ACKed — terminal */
+    QL_TX_STREAM_RESET_SENT = 4,  /* RESET_STREAM sent */
+    QL_TX_STREAM_RESET_RCVD = 5,  /* RESET_STREAM ACKed — terminal */
+} ql_tx_stream_state_t;
+
+/* 3.2 — Receiving stream states */
+typedef enum {
+    QL_RX_STREAM_RECV       = 0,  /* receiving data */
+    QL_RX_STREAM_SIZE_KNOWN = 1,  /* FIN received, final size known */
+    QL_RX_STREAM_DATA_RCVD  = 2,  /* all data received, not yet consumed */
+    QL_RX_STREAM_DATA_READ  = 3,  /* all data consumed by app — terminal */
+    QL_RX_STREAM_RESET_RCVD = 4,  /* RESET_STREAM received */
+    QL_RX_STREAM_RESET_READ = 5,  /* reset consumed by app — terminal */
+} ql_rx_stream_state_t;
+
+/* Per-stream flow control 4.1 */
+typedef struct {
+    uint64_t  send_limit;        /* peer's advertised MAX_STREAM_DATA */
+    uint64_t  send_offset;       /* bytes we have sent so far */
+    uint64_t  recv_limit;        /* our MAX_STREAM_DATA advertised to peer */
+    uint64_t  recv_consumed;     /* bytes consumed (read) by the application */
+    uint64_t  recv_offset;       /* highest byte offset received */
+    uint64_t  final_size;        /* set when FIN or RESET_STREAM seen 4.5 */
+    bool      final_size_known;
+    /* Data-blocked signalling 19.13 */
+    bool      send_blocked;      /* we are blocked by send_limit */
+    uint64_t  blocked_at;        /* limit value we sent DATA_BLOCKED at */
+} ql_stream_fc_t;
+
+/* Connection-level flow control 4.1 */
+typedef struct {
+    uint64_t  send_limit;        /* peer's MAX_DATA */
+    uint64_t  send_offset;       /* total bytes sent across all streams */
+    uint64_t  recv_limit;        /* our MAX_DATA advertised to peer */
+    uint64_t  recv_consumed;     /* total bytes consumed across all streams */
+    /* Data-blocked signalling 19.12 */
+    bool      send_blocked;
+    uint64_t  blocked_at;
+} ql_conn_fc_t;
+
+/* =========================================================================
+ * CRYPTO (TLS) REORDER BUFFER  7.5
+ * CRYPTO frames may arrive out of order; we must reassemble in order
+ * before feeding into TLS.  RFC mandates >= 4096 bytes per level.
+ * ========================================================================= */
+
+typedef struct {
+    uint8_t   buf[QL_CRYPTO_BUF_SIZE];
+    uint64_t  rx_offset;     /* next expected byte from peer */
+    uint64_t  tx_offset;     /* next byte offset to send to peer */
+    bool      has_data;      /* non-empty */
+} ql_crypto_buf_t;
+
+typedef struct ql_stream {
+    ql_stream_id_t        id;
+    ql_stream_type_t      type;
+    ql_tx_stream_state_t  tx_state;
+    ql_rx_stream_state_t  rx_state;
+
+    /* Flow control */
+    ql_stream_fc_t  fc;
+
+    /* Send-side ring buffer */
+    uint8_t   tx_buf[QL_STREAM_BUF_SIZE];
+    uint64_t  tx_head;         /* next write position (app → buffer) */
+    uint64_t  tx_tail;         /* next send position (buffer → wire) */
+    uint64_t  tx_acked_offset; /* highest ACKed send offset */
+
+    /* Receive-side ring buffer */
+    uint8_t   rx_buf[QL_STREAM_BUF_SIZE];
+    uint64_t  rx_head;         /* next app-read position */
+    uint64_t  rx_tail;         /* next write by receive path */
+
+    /* Error codes */
+    ql_app_error_t  reset_error_code;  /* RESET_STREAM / STOP_SENDING code */
+
+    /* Priority hint for scheduling (2.3 — application-defined) */
+    uint32_t  priority;
+
+    /* Intrusive singly-linked list within ql_conn_t */
+    struct ql_stream *next;
+} ql_stream_t;
+
+/* =========================================================================
+ *     ENCRYPTION LEVELS  RFC 9001 4
+ *     Controls which CRYPTO-frame data belongs to which TLS flight,
+ *     and which AEAD keys are used to protect packets.
+ * ========================================================================= */
+typedef enum {
+    QL_ENC_LEVEL_INITIAL    = 0,  /* AEAD_AES_128_GCM, fixed salt 5.2 RFC9001 */
+    QL_ENC_LEVEL_EARLY_DATA = 1,  /* 0-RTT keys (client-only write) */
+    QL_ENC_LEVEL_HANDSHAKE  = 2,  /* Handshake keys */
+    QL_ENC_LEVEL_APP        = 3,  /* 1-RTT keys */
+    QL_ENC_LEVEL_COUNT      = 4,
+} ql_enc_level_t;
+
+typedef struct ql_conn ql_conn_t;  /* forward declaration */
+
+/*
+ * Feed inbound CRYPTO-frame bytes into the TLS engine at the given level.
+ * Returns 0 on success, <0 on fatal TLS error.
+ */
+typedef int (*ql_tls_provide_data_fn)(void *tls_ctx, ql_enc_level_t level,
+                                       const uint8_t *data, size_t len);
+
+/*
+ * Pull outbound CRYPTO bytes from the TLS engine for the given level.
+ * Writes into buf (capacity cap).  Returns bytes written, 0 if none, <0 error.
+ */
+typedef int (*ql_tls_get_data_fn)(void *tls_ctx, ql_enc_level_t level,
+                                   uint8_t *buf, size_t cap);
+
+/*
+ * Called when TLS signals new read/write keys are available at a level.
+ * Implementation should derive AEAD + HP keys and fill *keys_out.
+ */
+typedef int (*ql_tls_set_keys_fn)(void *tls_ctx, ql_enc_level_t level,
+                                   ql_key_pair_t *keys_out);
+
+/* Returns true once TLS handshake is complete (server has sent Finished). */
+typedef bool (*ql_tls_is_done_fn)(void *tls_ctx);
+
+/* Returns the negotiated ALPN string, or NULL. */
+typedef const char *(*ql_tls_get_alpn_fn)(void *tls_ctx);
+
+/* Push our encoded QUIC transport parameters into the TLS extension 7.4. */
+typedef int (*ql_tls_set_tp_fn)(void *tls_ctx,
+                                 const uint8_t *tp_buf, size_t tp_len);
+
+/* Pull the peer's encoded transport parameters from the TLS extension 7.4. */
+typedef int (*ql_tls_get_peer_tp_fn)(void *tls_ctx,
+                                      uint8_t *tp_buf, size_t cap);
+
+/* All TLS callbacks plus the opaque context pointer */
+typedef struct {
+    void                   *tls_ctx;
+    ql_tls_provide_data_fn  provide_data;
+    ql_tls_get_data_fn      get_data;
+    ql_tls_set_keys_fn      set_keys;
+    ql_tls_is_done_fn       is_done;
+    ql_tls_get_alpn_fn      get_alpn;
+    ql_tls_set_tp_fn        set_tp;
+    ql_tls_get_peer_tp_fn   get_peer_tp;
+} ql_tls_t;
+
+typedef enum {
+    QL_CONN_IDLE      = 0,
+    QL_CONN_INITIAL   = 1,  /* Initial packets exchanged */
+    QL_CONN_HANDSHAKE = 2,  /* TLS Handshake in progress */
+    QL_CONN_CONNECTED = 3,  /* 1-RTT keys installed, handshake confirmed */
+    QL_CONN_CLOSING   = 4,  /* CONNECTION_CLOSE sent, entering drain 10.2.1 */
+    QL_CONN_DRAINING  = 5,  /* CONNECTION_CLOSE received 10.2.2 */
+    QL_CONN_CLOSED    = 6,  /* terminal */
+} ql_conn_state_t;
+
+typedef enum {
+    QL_ROLE_CLIENT = 0,
+    QL_ROLE_SERVER = 1,
+} ql_role_t;
+
+typedef enum {
+    QL_TIMER_NONE           = 0,
+    QL_TIMER_IDLE           = 1,   /* 10.1 */
+    QL_TIMER_PTO            = 2,   /* RFC 9002 6.2 */
+    QL_TIMER_DRAIN          = 3,   /* 10.2.2 */
+    QL_TIMER_ACK_DELAY      = 4,   /* 13.2.1 */
+    QL_TIMER_PATH_CHALLENGE = 5,   /* 8.2.4 */
+} ql_timer_type_t;
+
+typedef struct {
+    ql_timer_type_t  type;
+    uint64_t         deadline_ms;   /* 0 = not armed */
+    bool             armed;
+} ql_timer_t;
+
+typedef enum {
+    QL_PATH_UNKNOWN   = 0,
+    QL_PATH_PROBING   = 1,   /* PATH_CHALLENGE sent, awaiting response */
+    QL_PATH_VALIDATED = 2,   /* PATH_RESPONSE received */
+    QL_PATH_FAILED    = 3,   /* validation timed out 8.2.4 */
+} ql_path_state_t;
+
+typedef struct {
+    struct sockaddr_storage  local_addr;
+    socklen_t                local_addrlen;
+    struct sockaddr_storage  peer_addr;
+    socklen_t                peer_addrlen;
+    ql_path_state_t          state;
+    ql_path_data_t           challenge_data;       /* random 8 bytes we sent */
+    uint64_t                 challenge_sent_at_ms;
+    uint64_t                 mtu;                  /* current path MTU */
+    ql_timer_t               challenge_timer;
+} ql_path_t;
+
+typedef void (*ql_on_connected_fn)  (ql_conn_t *conn, void *user);
+typedef void (*ql_on_stream_open_fn)(ql_conn_t *conn, ql_stream_t *stream, void *user);
+typedef void (*ql_on_data_fn)       (ql_conn_t *conn, ql_stream_t *stream, void *user);
+typedef void (*ql_on_close_fn)      (ql_conn_t *conn, ql_transport_error_t err, void *user);
+typedef void (*ql_on_migrate_fn)    (ql_conn_t *conn, const ql_path_t *new_path, void *user);
+
+typedef struct {
+    ql_transport_params_t  local_params;       /* what we advertise to peer */
+    ql_tls_t               tls;                /* TLS callback bundle */
+
+    /* Event callbacks */
+    ql_on_connected_fn    on_connected;
+    ql_on_stream_open_fn  on_stream_open;
+    ql_on_data_fn         on_data;
+    ql_on_close_fn        on_close;
+    ql_on_migrate_fn      on_migrate;
+    void                 *user;
+
+    /* Tuning */
+    uint64_t  idle_timeout_ms;               /* 0 = use peer's value */
+    bool      enable_spin_bit;               /* 17.4 */
+    bool      enable_migration;              /* 9 */
+    bool      require_address_validation;    /* server: require Retry 8.1 */
+    bool      enable_0rtt;                   /* allow 0-RTT data */
+} ql_config_t;
+
+/* One row: either a local CID we issued, or a remote CID we received */
+typedef struct {
+    ql_cid_t          cid;
+    uint64_t          sequence_num;       /* 19.15 */
+    uint64_t          retire_prior_to;    /* 19.15 */
+    ql_reset_token_t  reset_token;
+    bool              is_active;
+    bool              is_retired;
+} ql_cid_entry_t;
+
+/* =========================================================================
+ *      OUTBOUND DATAGRAM QUEUE  (coalescing + send queue)
+ *      12.2 allows multiple QUIC packets in one UDP datagram.
+ * ========================================================================= */
+
+/*
+ * One assembled, ready-to-send datagram.
+ * Multiple QUIC packets can be coalesced into a single UDP payload
+ * up to the path MTU.
+ */
+typedef struct {
+    uint8_t   data[QL_PATH_MTU_ETHERNET + 64]; /* generous upper bound */
+    size_t    len;
+    struct sockaddr_storage  dest;
+    socklen_t                dest_len;
+} ql_datagram_t;
+
+/* Ring of outbound datagrams waiting for the UDP socket */
+typedef struct {
+    ql_datagram_t  datagrams[QL_MAX_COALESCE_PKTS];
+    int            head;
+    int            tail;
+    int            count;
+} ql_send_queue_t;
+
+/* Bitmask of retransmittable frame types for ql_sent_pkt_t.frame_flags */
+#define QL_RETX_FLAG_CRYPTO          (1u << 0)
+#define QL_RETX_FLAG_STREAM          (1u << 1)
+#define QL_RETX_FLAG_RESET_STREAM    (1u << 2)
+#define QL_RETX_FLAG_STOP_SENDING    (1u << 3)
+#define QL_RETX_FLAG_MAX_DATA        (1u << 4)
+#define QL_RETX_FLAG_MAX_STREAM_DATA (1u << 5)
+#define QL_RETX_FLAG_MAX_STREAMS     (1u << 6)
+#define QL_RETX_FLAG_NEW_CID         (1u << 7)
+#define QL_RETX_FLAG_RETIRE_CID      (1u << 8)
+#define QL_RETX_FLAG_PATH_CHALLENGE  (1u << 9)
+#define QL_RETX_FLAG_HANDSHAKE_DONE  (1u << 10)
+#define QL_RETX_FLAG_NEW_TOKEN       (1u << 11)
+#define QL_RETX_FLAG_PING            (1u << 12)
+#define QL_RETX_FLAG_DATA_BLOCKED    (1u << 13)
+
+typedef struct {
+    ql_pkt_num_t   pkt_num;
+    ql_pn_space_t  pn_space;
+    uint64_t       sent_at_ms;        /* wall-clock send time */
+    size_t         in_flight_bytes;   /* bytes counted toward congestion window */
+    bool           ack_eliciting;     /* false → no ACK needed 13.2 */
+    bool           in_flight;         /* counted in cc.bytes_in_flight */
+    bool           is_lost;
+    bool           is_acked;
+    uint32_t       frame_flags;       /* QL_RETX_FLAG_* bitmask */
+} ql_sent_pkt_t;
+
+typedef enum {
+    QL_CC_SLOW_START      = 0,
+    QL_CC_CONGESTION_AVD  = 1,
+    QL_CC_RECOVERY        = 2,
+} ql_cc_state_t;
+
+typedef struct {
+    ql_cc_state_t  state;
+    uint64_t       cwnd;               /* congestion window, bytes */
+    uint64_t       ssthresh;           /* slow-start threshold, bytes */
+    uint64_t       bytes_in_flight;    /* unacked in-flight bytes */
+    uint64_t       recovery_start_pn;  /* pkt-num when recovery began */
+
+    /* RTT estimates RFC 9002 §5 */
+    uint64_t       latest_rtt_us;
+    uint64_t       smoothed_rtt_us;    /* SRTT */
+    uint64_t       rtt_var_us;         /* RTTVAR */
+    uint64_t       min_rtt_us;
+    uint64_t       first_rtt_sample_at_ms;
+    bool           rtt_sample_taken;
+
+    /* PTO (Probe Timeout) timer RFC 9002 6.2 */
+    uint64_t       pto_deadline_ms;    /* 0 = not armed */
+    int            pto_count;
+
+    /* Loss detection RFC 9002 6.1 */
+    uint64_t       loss_time[QL_PN_SPACE_COUNT]; /* earliest loss-time per space */
+    uint64_t       time_of_last_sent_ack_eliciting_pkt[QL_PN_SPACE_COUNT];
+
+    /* ECN counters RFC 9002 9.3 */
+    uint64_t       peer_ecn_ce_count;  /* last CE count seen in peer's ACK */
+} ql_cc_t;
+
+struct ql_conn {
+    ql_conn_state_t  state;
+    ql_role_t        role;
+    ql_config_t      cfg;
+
+    /* ---- Connection IDs 5.1 ---- */
+    ql_cid_entry_t  local_cids[QL_MAX_CIDS];
+    int             local_cid_count;
+    ql_cid_entry_t  remote_cids[QL_MAX_CIDS];
+    int             remote_cid_count;
+    uint64_t        next_cid_seq;            /* next sequence number to issue */
+    uint64_t        next_retire_prior_to;    /* 19.15 */
+
+    /* Active CIDs for current exchange */
+    ql_cid_t  local_cid;    /* we tell peer to address us with this */
+    ql_cid_t  remote_cid;   /* we address peer with this */
+
+    /* ---- Transport parameters ---- */
+    ql_transport_params_t  local_tp;
+    ql_transport_params_t  remote_tp;
+    bool                   remote_tp_rcvd;
+
+    /* ---- Packet number spaces 12.3 ---- */
+    ql_pkt_num_t   next_pn[QL_PN_SPACE_COUNT];        /* next to send */
+    ql_pkt_num_t   largest_recvd[QL_PN_SPACE_COUNT];  /* from peer */
+    ql_ack_state_t ack[QL_PN_SPACE_COUNT];
+
+    /* ---- Crypto / TLS keys ---- */
+    ql_key_pair_t   keys[QL_ENC_LEVEL_COUNT];
+    ql_key_update_t key_update;                    /* RFC 9001 6 */
+
+    /* ---- TLS engine ---- */
+    ql_tls_t  tls;
+    bool      handshake_complete;    /* TLS done, 1-RTT keys installed */
+    bool      handshake_confirmed;   /* server: HANDSHAKE_DONE sent 4.1.2 RFC9001 */
+
+    /* ---- CRYPTO frame reassembly buffers 7.5 ---- */
+    ql_crypto_buf_t  crypto[QL_ENC_LEVEL_COUNT];
+
+    /* ---- Address / Retry token 8.1 ---- */
+    ql_token_t  token;   /* outgoing: token from server's Retry / NEW_TOKEN */
+
+    /* ---- Address validation 8 / 21.3 ---- */
+    ql_addr_valid_t  addr_valid;
+
+    /* ---- Paths 9 ---- */
+    ql_path_t  active_path;
+    ql_path_t  probing_path;
+    bool       migration_in_progress;
+
+    /* ---- Network socket ---- */
+    int   fd;                      /* non-blocking UDP socket */
+
+    /* ---- Streams 2 ---- */
+    ql_stream_t  *stream_list;               /* singly-linked list of all open streams */
+    uint64_t      next_stream_id[4];         /* per QL_STREAM_TYPE_* */
+    uint64_t      max_streams_bidi;          /* from peer's transport params */
+    uint64_t      max_streams_uni;
+    uint64_t      open_streams_bidi;
+    uint64_t      open_streams_uni;
+
+    /* ---- Connection-level flow control 4 ---- */
+    ql_conn_fc_t  fc;
+
+    /* ---- Congestion control / loss detection RFC 9002 ---- */
+    ql_cc_t       cc;
+    ql_sent_pkt_t sent_pkts[QL_SENT_PKT_MAX];
+    int           sent_pkt_count;
+    /* Pointer to oldest unacked entry; wraps modulo QL_SENT_PKT_MAX */
+    int           sent_pkt_head;
+    int           sent_pkt_tail;
+
+    /* ---- Timers ---- */
+    ql_timer_t  timer_idle;           /* 10.1 */
+    ql_timer_t  timer_drain;          /* 10.2.2 */
+    ql_timer_t  timer_ack[QL_PN_SPACE_COUNT]; /* 13.2.1 — per space */
+
+    /* ---- Close state 10.2 ---- */
+    bool                  closing;
+    ql_transport_error_t  close_error;
+    ql_app_error_t        close_app_error;
+    ql_frame_type_t       close_frame_type;
+    uint8_t               close_reason[256];
+    size_t                close_reason_len;
+    /* Buffer the last CONNECTION_CLOSE we sent, to echo it 10.2.1 */
+    uint8_t               close_pkt[QL_PATH_MTU_DEFAULT];
+    size_t                close_pkt_len;
+
+    /* ---- Stateless reset 10.3 ---- */
+    ql_reset_token_t  local_reset_token;
+
+    /* ---- Spin bit 17.4 ---- */
+    bool  spin_bit;
+
+    /* ---- Outbound datagram queue ---- */
+    ql_send_queue_t  send_queue;
+
+    /* ---- Stats / diagnostics ---- */
+    uint64_t  bytes_sent_total;
+    uint64_t  bytes_received_total;
+    uint64_t  pkts_sent;
+    uint64_t  pkts_received;
+    uint64_t  pkts_lost;
+
+    /* ---- Opaque user pointer ---- */
+    void  *user;
+};
+
 /**
  * PUBLIC API
  */
@@ -1890,6 +2374,11 @@ int ql_tp_decode(const uint8_t *buf, size_t len, ql_transport_params_t *out) {
     }
     return (int)pos;
 }
+
+void ql_cid_generate(ql_cid_t *cid, uint8_t len);
+void ql_cid_cmp(const ql_cid_t *a, const ql_cid_t *b);
+
+int ql_conn_init(ql_conn_t *conn, ql_role_t role, const ql_config_t *cfg);
 
 #if defined(__cplusplus)
 } /* extern "C" */
