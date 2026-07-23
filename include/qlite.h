@@ -33,6 +33,7 @@ extern "C" {
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <sys/random.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
@@ -1110,6 +1111,10 @@ typedef struct {
     uint32_t       frame_flags;       /* QL_RETX_FLAG_* bitmask */
 } ql_sent_pkt_t;
 
+/**
+ * CONGESTION CONTROL STATE  RFC 9002 §7
+ * NewReno by default; CUBIC can replace it.
+ */
 typedef enum {
     QL_CC_SLOW_START      = 0,
     QL_CC_CONGESTION_AVD  = 1,
@@ -2375,7 +2380,34 @@ int ql_tp_decode(const uint8_t *buf, size_t len, ql_transport_params_t *out) {
     return (int)pos;
 }
 
-void ql_cid_generate(ql_cid_t *cid, uint8_t len);
+/*
+ * ql_cid_generate — fills cid->data[0..len) with cryptographically
+ * random bytes and sets cid->len. §5.1: len may be 0 (zero-length CID),
+ * up to QL_CID_MAX_LEN.
+ *
+ * Uses getrandom(2) where available (Linux), falling back to reading
+ * /dev/urandom. Zeroes the struct on failure so a caller who ignores
+ * the (void) return doesn't end up with a partially-random, misleading
+ * CID.
+ */
+void ql_cid_generate(ql_cid_t *cid, uint8_t len){
+    if (!cid || len > QL_CID_MAX_LEN) return;
+    memset(cid->data, 0, QL_CID_MAX_LEN);
+    cid->len = 0;
+    if (len == 0) return;   /* zero-length CID is valid; nothing to fill */
+
+    size_t filled = 0;
+    while (filled < len) {
+        ssize_t n = getrandom(cid->data + filled, (size_t)len - filled, 0);
+        if (n < 0) {
+            if (errno == EINTR) continue;
+            return;   /* leave cid zeroed/len=0 on hard failure */
+        }
+        filled += (size_t)n;
+    }
+    cid->len = len;
+}
+
 void ql_cid_cmp(const ql_cid_t *a, const ql_cid_t *b);
 
 int ql_conn_init(ql_conn_t *conn, ql_role_t role, const ql_config_t *cfg);
