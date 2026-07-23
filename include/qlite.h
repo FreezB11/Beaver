@@ -933,7 +933,9 @@ int  ql_pkt_num_encode(uint8_t *buf, ql_pkt_num_t full_pn,ql_pkt_num_t largest_a
     if (n_unacked < (1ULL << 7)) pn_len = 1;
     else if (n_unacked < (1ULL << 15)) pn_len = 2;
     else if (n_unacked < (1ULL << 23)) pn_len = 3;
-    else pn_len = 4;
+    // else pn_len = 4;
+    else if (n_unacked < (1ULL << 31)) pn_len = 4;
+    else return QLITE_ERR_INTERNAL;
 
     for(int i = 0; i< pn_len; i++)
         buf[pn_len - 1 -i] = (uint8_t)(full_pn >> (i*8)); 
@@ -966,6 +968,8 @@ ql_pkt_num_t ql_pkt_num_decode(uint64_t truncated_pn, int pn_nbits,ql_pkt_num_t 
     {
         candidate_pn -= pn_win;
     }
+
+    if(candidate_pn > QL_VARINT_MAX) candidate_pn -= pn_win;
 
     return candidate_pn;
 }
