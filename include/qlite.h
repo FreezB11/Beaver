@@ -2408,7 +2408,23 @@ void ql_cid_generate(ql_cid_t *cid, uint8_t len){
     cid->len = len;
 }
 
-void ql_cid_cmp(const ql_cid_t *a, const ql_cid_t *b);
+/*
+ * ql_cid_cmp — constant-time comparison of two connection IDs.
+ * Returns 0 if equal (same length and same bytes), non-zero otherwise.
+ * Length is compared in variable time (it's not secret), but the byte
+ * comparison itself does not short-circuit, so it doesn't leak which
+ * byte differed via timing.
+ */
+int ql_cid_cmp(const ql_cid_t *a, const ql_cid_t *b){
+    if (!a || !b) return 1;
+    if (a->len != b->len) return 1;
+
+    uint8_t diff = 0;
+    for (uint8_t i = 0; i < a->len; i++) {
+        diff |= a->data[i] ^ b->data[i];
+    }
+    return (int)diff;
+}
 
 int ql_conn_init(ql_conn_t *conn, ql_role_t role, const ql_config_t *cfg);
 
