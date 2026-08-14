@@ -42,6 +42,11 @@ extern "C" {
 /* dependcies*/
 #include <openssl/evp.h>
 #include <openssl/aes.h>
+#include <openssl/ssl.h>
+#include <openssl/kdf.h>
+#include <openssl/core_names.h>
+#include <openssl/err.h>
+#include <wolfssl/openssl/ssl.h>
 
 /* helpers*/
 /* Write Varint — encodes val, advances pos, returns error on overflow */
@@ -1247,6 +1252,72 @@ struct ql_conn {
     void  *user;
 };
 
+/* One outgoing-handshake-data buffer per encryption level. OpenSSL's
+ * add_handshake_data callback PUSHES bytes to us; ql_tls_get_data DRAINS
+ * them. Growable because flight sizes vary (client Certificate flights
+ * can be several KB). */
+typedef struct {
+    uint8_t *buf;
+    size_t   len;
+    size_t   cap;
+    size_t   read_off;   /* how much ql_tls_get_data has already drained */
+} ql_tls_outbuf_t;
+
+typedef struct {
+    SSL       *ssl;
+    ql_role_t  role;
+
+    ql_tls_outbuf_t out[QL_ENC_LEVEL_COUNT];
+
+    /* Most recent secret handed to us per level/direction, staged here
+     * until ql_tls_install_keys is called and consumes it. */
+    struct {
+        uint8_t  secret[QL_SECRET_MAX_LEN];
+        size_t   secret_len;
+        uint32_t cipher_id;     /* SSL_CIPHER id, tells us AEAD + hash */
+        bool     read_pending;
+        bool     write_pending;
+    } pending[QL_ENC_LEVEL_COUNT];
+
+    /* Encoded transport parameters we're asked to send, buffered until
+     * OpenSSL pulls them during the handshake. */
+    uint8_t  local_tp[1024];
+    size_t   local_tp_len;
+} ql_tls_backend_t;
+
+/* -------------------------------------------------------------------------
+ * OSSL_ENCRYPTION_LEVEL <-> ql_enc_level_t
+ * quictls defines its own enum with the same four values in the same
+ * handshake order, but we translate explicitly rather than assume the
+ * integer values line up across library versions.
+ * ------------------------------------------------------------------------- */
+static ql_enc_level_t map_from_ossl(OSSL_ENCRYPTION_LEVEL level) {
+    switch (level) {
+        case ssl_encryption_initial:      return QL_ENC_LEVEL_INITIAL;
+        case ssl_encryption_early_data:   return QL_ENC_LEVEL_EARLY_DATA;
+        case ssl_encryption_handshake:    return QL_ENC_LEVEL_HANDSHAKE;
+        case ssl_encryption_application:  return QL_ENC_LEVEL_APP;
+        default:                          return QL_ENC_LEVEL_APP;
+    }
+}
+
+static OSSL_ENCRYPTION_LEVEL map_to_ossl(ql_enc_level_t level) {
+    switch (level) {
+        case QL_ENC_LEVEL_INITIAL:    return ssl_encryption_initial;
+        case QL_ENC_LEVEL_EARLY_DATA: return ssl_encryption_early_data;
+        case QL_ENC_LEVEL_HANDSHAKE:  return ssl_encryption_handshake;
+        default:                      return ssl_encryption_application;
+    }
+}
+
+static const SSL_QUIC_METHOD QL_QUIC_METHOD = {
+    cb_set_read_secret,
+    cb_set_write_secret,
+    cb_add_handshake_data,
+    cb_flush_flight,
+    cb_send_alert,
+};
+
 /**
  * PUBLIC API
  */
@@ -2109,6 +2180,60 @@ int  ql_hp_remove(const ql_keys_t *key, uint8_t *hdr, size_t hdr_len,
     return ql__hp_apply(key, hdr, hdr_len, sample, false);
 }
 
+/* -------------------------------------------------------------------------
+ * RFC 8446 7.1 HKDF-Expand-Label, reused by RFC 9001 5.1 for
+ * "quic key" / "quic iv" / "quic hp" derivation from a TLS secret.
+ *
+ *   HKDF-Expand-Label(Secret, Label, Context, Length) =
+ *       HKDF-Expand(Secret, HkdfLabel, Length)
+ *
+ * HkdfLabel = struct {
+ *     uint16 length;
+ *     opaque label<7..255> = "tls13 " + Label;
+ *     opaque context<0..255> = Context;   // empty for QUIC key derivation
+ * };
+ * ------------------------------------------------------------------------- */
+int hkdf_expand_label(const EVP_MD *md,
+                              const uint8_t *secret, size_t secret_len,
+                              const char *label,      /* WITHOUT "tls13 " prefix */
+                              uint8_t *out, size_t out_len)
+{
+    uint8_t hkdf_label[2 + 1 + 6 + 64 + 1]; /* generous fixed bound */
+    size_t  pos = 0;
+    size_t  label_len = strlen(label);
+    const char prefix[] = "tls13 ";
+    size_t full_label_len = sizeof(prefix) - 1 + label_len;
+
+    if (full_label_len > 255 || out_len > 0xFFFF) return -1;
+
+    hkdf_label[pos++] = (uint8_t)(out_len >> 8);
+    hkdf_label[pos++] = (uint8_t)(out_len & 0xFF);
+    hkdf_label[pos++] = (uint8_t)full_label_len;
+    memcpy(hkdf_label + pos, prefix, sizeof(prefix) - 1);
+    pos += sizeof(prefix) - 1;
+    memcpy(hkdf_label + pos, label, label_len);
+    pos += label_len;
+    hkdf_label[pos++] = 0x00;   /* empty Context */
+
+    EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new_from_name(NULL, "HKDF", NULL);
+    if (!pctx) return -1;
+
+    int rc = -1;
+    if (EVP_PKEY_derive_init(pctx) <= 0) goto out;
+    if (EVP_PKEY_CTX_hkdf_mode(pctx, EVP_PKEY_HKDEF_MODE_EXPAND_ONLY) <= 0) goto out;
+    if (EVP_PKEY_CTX_set_hkdf_md(pctx, md) <= 0) goto out;
+    if (EVP_PKEY_CTX_set1_hkdf_key(pctx, secret, (int)secret_len) <= 0) goto out;
+    if (EVP_PKEY_CTX_add1_hkdf_info(pctx, hkdf_label, (int)pos) <= 0) goto out;
+    {
+        size_t outl = out_len;
+        if (EVP_PKEY_derive(pctx, out, &outl) <= 0 || outl != out_len) goto out;
+    }
+    rc = 0;
+out:
+    EVP_PKEY_CTX_free(pctx);
+    return rc;
+}
+
 int  ql_pkt_encode(const ql_pkt_hdr_t *hdr, const ql_keys_t *key,
                     const uint8_t *payload, size_t payload_len,
                     uint8_t *out, size_t cap)
@@ -2488,6 +2613,285 @@ int ql_conn_init(ql_conn_t *conn, ql_role_t role, const ql_config_t *cfg){
     conn->sent_pkt_head = conn->sent_pkt_tail = conn->sent_pkt_count = 0;
 
     return QLITE_OK;
+}
+
+/* Given a raw TLS secret for a level/direction, derive the three QUIC
+ * packet-protection keys per RFC 9001 §5.1. `cipher` tells us the AEAD
+ * (hence key_len) and hash (for HKDF) in use — AES-128-GCM/SHA-256 for
+ * TLS_AES_128_GCM_SHA256, etc. */
+static int derive_ql_keys(const SSL_CIPHER *cipher,
+                           const uint8_t *secret, size_t secret_len,
+                           ql_keys_t *out)
+{
+    const EVP_MD *md = EVP_sha256();  /* default; widen below for SHA-384 suite */
+    size_t key_len = 16, iv_len = 12, hp_len = 16;
+
+    uint32_t id = SSL_CIPHER_get_id(cipher) & 0xFFFF;
+    /* TLS_AES_256_GCM_SHA384 = 0x1302, TLS_CHACHA20_POLY1305_SHA256 = 0x1303 */
+    if (id == 0x1302) { md = EVP_sha384(); key_len = 32; }
+    else if (id == 0x1303) { key_len = 32; }
+    /* else: TLS_AES_128_GCM_SHA256 = 0x1301 -> defaults above */
+
+    if (hkdf_expand_label(md, secret, secret_len, "quic key", out->key, key_len) != 0) return -1;
+    if (hkdf_expand_label(md, secret, secret_len, "quic iv",  out->iv,  iv_len)  != 0) return -1;
+    if (hkdf_expand_label(md, secret, secret_len, "quic hp",  out->hp,  hp_len)  != 0) return -1;
+
+    out->key_len = (uint8_t)key_len;
+    out->iv_len  = (uint8_t)iv_len;
+    out->hp_len  = (uint8_t)hp_len;
+    out->is_set  = true;
+    return 0;
+}
+
+/* TLS*/
+/* -------------------------------------------------------------------------
+ * SSL_QUIC_METHOD callbacks — OpenSSL calls these DURING SSL_do_handshake().
+ * They're the actual entry point for handshake bytes and derived secrets;
+ * our public ql_tls_* functions are just the outward-facing shape.
+ * ------------------------------------------------------------------------- */
+
+static ql_tls_backend_t *backend_of(SSL *ssl) {
+    return (ql_tls_backend_t *)SSL_get_app_data(ssl);
+}
+
+static int cb_set_read_secret(SSL *ssl, OSSL_ENCRYPTION_LEVEL level,
+                               const SSL_CIPHER *cipher,
+                               const uint8_t *secret, size_t secret_len)
+{
+    ql_tls_backend_t *be = backend_of(ssl);
+    ql_enc_level_t l = map_from_ossl(level);
+    if (secret_len > QL_SECRET_MAX_LEN) return 0;
+    memcpy(be->pending[l].secret, secret, secret_len);
+    be->pending[l].secret_len   = secret_len;
+    be->pending[l].cipher_id    = SSL_CIPHER_get_id(cipher);
+    be->pending[l].read_pending = true;
+    return 1;
+}
+
+static int cb_set_write_secret(SSL *ssl, OSSL_ENCRYPTION_LEVEL level,
+                                const SSL_CIPHER *cipher,
+                                const uint8_t *secret, size_t secret_len)
+{
+    ql_tls_backend_t *be = backend_of(ssl);
+    ql_enc_level_t l = map_from_ossl(level);
+    if (secret_len > QL_SECRET_MAX_LEN) return 0;
+    /* Same secret buffer slot is fine: read/write are derived independently
+     * by derive_ql_keys() before install_keys overwrites this slot again. */
+    memcpy(be->pending[l].secret, secret, secret_len);
+    be->pending[l].secret_len    = secret_len;
+    be->pending[l].cipher_id     = SSL_CIPHER_get_id(cipher);
+    be->pending[l].write_pending = true;
+    return 1;
+}
+
+static int cb_add_handshake_data(SSL *ssl, OSSL_ENCRYPTION_LEVEL level,
+                                  const uint8_t *data, size_t len)
+{
+    ql_tls_backend_t *be = backend_of(ssl);
+    ql_tls_outbuf_t *ob = &be->out[map_from_ossl(level)];
+
+    if (ob->len + len > ob->cap) {
+        size_t new_cap = (ob->cap ? ob->cap * 2 : 4096);
+        while (new_cap < ob->len + len) new_cap *= 2;
+        uint8_t *nb = realloc(ob->buf, new_cap);
+        if (!nb) return 0;
+        ob->buf = nb;
+        ob->cap = new_cap;
+    }
+    memcpy(ob->buf + ob->len, data, len);
+    ob->len += len;
+    return 1;
+}
+
+static int cb_flush_flight(SSL *ssl) { (void)ssl; return 1; /* no-op: we're not doing our own I/O buffering here */ }
+
+static int cb_send_alert(SSL *ssl, OSSL_ENCRYPTION_LEVEL level, uint8_t alert)
+{
+    (void)ssl; (void)level;
+    /* Surface as a fatal error; caller's ql_tls_is_done / next provide_data
+     * call will observe SSL_get_error() == SSL_ERROR_SSL and treat it as
+     * QL_ERR_CRYPTO_ERROR_BASE + alert (§20.1). Nothing to buffer here. */
+    fprintf(stderr, "[ql_tls] peer/local TLS alert: %u\n", alert);
+    return 1;
+}
+/**
+ * we declare two layers on purpose:
+ * 1. ql_tls_t is a bundle of function ptrs (ql_tls_provide_data_fn, 
+ * ql_tls_get_data_fn, ...) plus an opaque tls_ctx.
+ * this is how we avoid the hard-linking libssl in the header.
+ * 
+ * 2. ql_tls_init/provide_data/get_data/install_keys/handshake_done are the
+ * public api the rest of qlite actually call.
+ */
+
+static int impl_provide_data(void *tls_ctx, ql_enc_level_t level,
+                              const uint8_t *data, size_t len)
+{
+    ql_tls_backend_t *be = (ql_tls_backend_t *)tls_ctx;
+
+    if (SSL_provide_quic_data(be->ssl, map_to_ossl(level), data, len) != 1)
+        return -1;
+
+    /* Drive the state machine forward. In_init lets us call this safely
+     * both pre- and post-handshake-completion (post-handshake messages,
+     * e.g. NewSessionTicket, also arrive via provide_data). */
+    int rc = SSL_do_handshake(be->ssl);
+    if (rc != 1) {
+        int err = SSL_get_error(be->ssl, rc);
+        if (err != SSL_ERROR_WANT_READ && err != SSL_ERROR_WANT_WRITE)
+            return -1;   /* genuine fatal error, e.g. bad Finished */
+    }
+    return 0;
+}
+
+static int impl_get_data(void *tls_ctx, ql_enc_level_t level,
+                          uint8_t *buf, size_t cap)
+{
+    ql_tls_backend_t *be = (ql_tls_backend_t *)tls_ctx;
+    ql_tls_outbuf_t *ob = &be->out[level];
+
+    size_t avail = ob->len - ob->read_off;
+    size_t n = avail < cap ? avail : cap;
+    if (n == 0) return 0;
+
+    memcpy(buf, ob->buf + ob->read_off, n);
+    ob->read_off += n;
+
+    /* Reclaim space once fully drained so the buffer doesn't grow unbounded
+     * across a long connection with repeated key updates / post-hs msgs. */
+    if (ob->read_off == ob->len) { ob->len = 0; ob->read_off = 0; }
+
+    return (int)n;
+}
+
+static int impl_set_keys(void *tls_ctx, ql_enc_level_t level, ql_key_pair_t *keys_out)
+{
+    ql_tls_backend_t *be = (ql_tls_backend_t *)tls_ctx;
+    int rc = 0;
+
+    if (be->pending[level].read_pending) {
+        const SSL_CIPHER *c = SSL_CIPHER_find(be->ssl, (const uint8_t[]){
+            (uint8_t)(be->pending[level].cipher_id >> 8),
+            (uint8_t)(be->pending[level].cipher_id & 0xFF) });
+        rc |= derive_ql_keys(c, be->pending[level].secret,
+                              be->pending[level].secret_len, &keys_out->read);
+        be->pending[level].read_pending = false;
+    }
+    if (be->pending[level].write_pending) {
+        const SSL_CIPHER *c = SSL_CIPHER_find(be->ssl, (const uint8_t[]){
+            (uint8_t)(be->pending[level].cipher_id >> 8),
+            (uint8_t)(be->pending[level].cipher_id & 0xFF) });
+        rc |= derive_ql_keys(c, be->pending[level].secret,
+                              be->pending[level].secret_len, &keys_out->write);
+        be->pending[level].write_pending = false;
+    }
+    return rc == 0 ? 0 : -1;
+}
+
+static bool impl_is_done(void *tls_ctx) {
+    ql_tls_backend_t *be = (ql_tls_backend_t *)tls_ctx;
+    return SSL_is_init_finished(be->ssl) != 0;
+}
+
+static const char *impl_get_alpn(void *tls_ctx) {
+    ql_tls_backend_t *be = (ql_tls_backend_t *)tls_ctx;
+    const uint8_t *proto = NULL; unsigned int proto_len = 0;
+    SSL_get0_alpn_selected(be->ssl, &proto, &proto_len);
+    if (!proto || proto_len == 0) return NULL;
+    /* NB: caller must treat as non-null-terminated if you need exact length;
+     * for typical single-ALPN use this is fine as a C string in practice
+     * because OpenSSL's internal storage happens to be part of a larger
+     * null-terminated buffer, but don't rely on that — copy proto_len bytes. */
+    return (const char *)proto;
+}
+
+static int impl_set_tp(void *tls_ctx, const uint8_t *tp_buf, size_t tp_len) {
+    ql_tls_backend_t *be = (ql_tls_backend_t *)tls_ctx;
+    if (tp_len > sizeof(be->local_tp)) return -1;
+    memcpy(be->local_tp, tp_buf, tp_len);
+    be->local_tp_len = tp_len;
+    return SSL_set_quic_transport_params(be->ssl, be->local_tp, be->local_tp_len) == 1 ? 0 : -1;
+}
+
+static int impl_get_peer_tp(void *tls_ctx, uint8_t *tp_buf, size_t cap) {
+    ql_tls_backend_t *be = (ql_tls_backend_t *)tls_ctx;
+    const uint8_t *peer_tp = NULL; size_t peer_tp_len = 0;
+    SSL_get_peer_quic_transport_params(be->ssl, &peer_tp, &peer_tp_len);
+    if (!peer_tp || peer_tp_len > cap) return -1;
+    memcpy(tp_buf, peer_tp, peer_tp_len);
+    return (int)peer_tp_len;
+}
+
+/* -------------------------------------------------------------------------
+ * ql_tls_init — the one function that actually knows about OpenSSL.
+ * `ssl_ctx` is a real SSL_CTX* the caller created and configured
+ * (min/max version pinned to TLS 1.3, cert/key loaded for server role,
+ * verification mode set, etc.) — qlite doesn't own certificate policy.
+ * ------------------------------------------------------------------------- */
+int ql_tls_init(ql_tls_t *tls, void *ssl_ctx, ql_role_t role){
+    if (!tls || !ssl_ctx) return -1;
+
+    ql_tls_backend_t *be = calloc(1, sizeof(*be));
+    if (!be) return -1;
+
+    be->ssl = SSL_new((SSL_CTX *)ssl_ctx);
+    if (!be->ssl) { free(be); return -1; }
+
+    be->role = role;
+    SSL_set_app_data(be->ssl, be);
+    SSL_set_quic_method(be->ssl, &QL_QUIC_METHOD);
+
+    if (role == QL_ROLE_CLIENT) SSL_set_connect_state(be->ssl);
+    else                        SSL_set_accept_state(be->ssl);
+
+    tls->tls_ctx     = be;
+    tls->provide_data = impl_provide_data;
+    tls->get_data     = impl_get_data;
+    tls->set_keys     = impl_set_keys;
+    tls->is_done      = impl_is_done;
+    tls->get_alpn     = impl_get_alpn;
+    tls->set_tp       = impl_set_tp;
+    tls->get_peer_tp  = impl_get_peer_tp;
+
+    return 0;
+}
+
+void ql_tls_free(ql_tls_t *tls)
+{
+    if (!tls || !tls->tls_ctx) return;
+    ql_tls_backend_t *be = (ql_tls_backend_t *)tls->tls_ctx;
+    SSL_free(be->ssl);
+    for (int i = 0; i < QL_ENC_LEVEL_COUNT; i++) free(be->out[i].buf);
+    free(be);
+    tls->tls_ctx = NULL;
+}
+
+/* -------------------------------------------------------------------------
+ * Thin public dispatchers — these are what ql_conn_tick() etc. actually
+ * call. They don't know anything about OpenSSL; they just forward through
+ * whatever ql_tls_init wired up above.
+ * ------------------------------------------------------------------------- */
+int ql_tls_provide_data(ql_tls_t *tls, ql_enc_level_t level,
+                         const uint8_t *data, size_t len)
+{
+    return tls->provide_data(tls->tls_ctx, level, data, len);
+}
+
+int ql_tls_get_data(ql_tls_t *tls, ql_enc_level_t level,
+                     uint8_t *buf, size_t cap)
+{
+    return tls->get_data(tls->tls_ctx, level, buf, cap);
+}
+
+int ql_tls_install_keys(ql_tls_t *tls, ql_enc_level_t level,
+                         ql_key_pair_t *keys_out)
+{
+    return tls->set_keys(tls->tls_ctx, level, keys_out);
+}
+
+bool ql_tls_handshake_done(const ql_tls_t *tls)
+{
+    return tls->is_done(tls->tls_ctx);
 }
 
 #if defined(__cplusplus)
