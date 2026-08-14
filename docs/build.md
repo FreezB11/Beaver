@@ -202,9 +202,9 @@ Depends on: Phase 2 complete.
 
 | Sub-chunk | Symbol(s) | Notes |
 |---|---|---|
-| 3.1.1 | `ql_cid_generate()` | cryptographically random bytes via `getrandom` / `arc4random` |
-| 3.1.2 | `ql_cid_cmp()` | constant-time byte comparison |
-| 3.1.3 | `ql_conn_init()` | zero struct, set role, copy config, generate initial local CID, init CC |
+| 3.1.1[x] | `ql_cid_generate()` | cryptographically random bytes via `getrandom` / `arc4random` |
+| 3.1.2[x] | `ql_cid_cmp()` | constant-time byte comparison |
+| 3.1.3[x] | `ql_conn_init()` | zero struct, set role, copy config, generate initial local CID, init CC |
 | 3.1.4 | CID table helpers | find active local CID, find remote CID by value, retire CID |
 
 **Test gate 3.1:** Init a client and server conn, verify CIDs are non-zero and distinct.  Retire a CID, verify it is marked retired and a new one is available.
