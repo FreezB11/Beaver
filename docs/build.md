@@ -215,11 +215,11 @@ Depends on: Phase 2 complete.
 
 | Sub-chunk | Symbol(s) | Notes |
 |---|---|---|
-| 3.2.1 | `ql_tls_init()` | validate all 7 callbacks non-NULL |
-| 3.2.2 | `ql_tls_provide_data()` | call `tls->provide_data`, feed into CRYPTO reorder buffer |
-| 3.2.3 | `ql_tls_get_data()` | call `tls->get_data`, build CRYPTO frame(s) for outbound queue |
-| 3.2.4 | `ql_tls_install_keys()` | call `tls->set_keys`, populate `conn->keys[level]` |
-| 3.2.5 | `ql_tls_handshake_done()` | delegate to `tls->is_done` |
+| 3.2.1[x] | `ql_tls_init()` | validate all 7 callbacks non-NULL |
+| 3.2.2[x] | `ql_tls_provide_data()` | call `tls->provide_data`, feed into CRYPTO reorder buffer |
+| 3.2.3[x] | `ql_tls_get_data()` | call `tls->get_data`, build CRYPTO frame(s) for outbound queue |
+| 3.2.4[x] | `ql_tls_install_keys()` | call `tls->set_keys`, populate `conn->keys[level]` |
+| 3.2.5[x] | `ql_tls_handshake_done()` | delegate to `tls->is_done` |
 
 **Test gate 3.2:** Build a mock TLS engine that feeds canned ClientHello / ServerHello bytes.  Verify CRYPTO frames are produced at the right encryption levels and key installation is called once per level.
 
