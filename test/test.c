@@ -10,8 +10,7 @@
 
 int ql_tests_run = 0;
 
-
-int main(void){
+int main(void) {
     /* frames test*/
     RUN_TEST(test_frame_ping_roundtrip);
     RUN_TEST(test_frame_padding_roundtrip);
@@ -133,7 +132,7 @@ int main(void){
     RUN_TEST(test_tls_init_null_args_rejected);
     RUN_TEST(test_tls_free_is_safe_on_null_and_zeroed);
     RUN_TEST(test_tls_real_handshake_end_to_end_via_quictls);
-    
+
     ql_test_summary();
     return 0;
 }

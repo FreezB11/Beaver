@@ -10,7 +10,7 @@
  *   RFC 9002  QUIC Loss Detection and Congestion Control
  */
 #ifndef _POSIX_C_SOURCE
-#define _POSIX_C_SOURCE 200809L
+#define _POSIX_C_SOURCE 200809L // NOLINT(bugprone-reserved-identifier)
 #endif
 #ifndef QLITE_H
 #define QLITE_H
@@ -49,45 +49,57 @@ extern "C" {
 
 /* helpers*/
 /* Write Varint — encodes val, advances pos, returns error on overflow */
-#define WV(val) \
-    do { int _n = ql_varint_encode(buf+pos, cap-pos, (uint64_t)(val)); \
-         if (_n < 0) return _n; \
-         pos += (size_t)_n; \
-    } while(0)
+#define WV(val)                                                           \
+    do {                                                                  \
+        int _n = ql_varint_encode(buf + pos, cap - pos, (uint64_t)(val)); \
+        if (_n < 0)                                                       \
+            return _n;                                                    \
+        pos += (size_t)_n;                                                \
+    } while (0)
 /* Write Bytes — copies raw bytes, advances pos, returns error on overflow */
-#define WB(ptr, len) \
-    do { size_t _l = (size_t)(len); \
-         if (pos + _l > cap) return QLITE_ERR_BUF; \
-         memcpy(buf + pos, (ptr), _l); \
-         pos += _l; \
-    } while(0)
-
-#define TP_VARINT(id, val) \
-    do { if (tp_write_varint(buf, &pos, cap, (id), (val)) < 0) \
-        return QLITE_ERR_BUF; \
-    } while(0)
-#define TP_BYTES(id, data, len) \
-    do { if (tp_write_bytes(buf, &pos, cap, (id), (data), (len)) < 0) return QLITE_ERR_BUF; } while(0)
-#define TP_CID(id, cid) \
-    do { if (tp_write_cid(buf, &pos, cap, (id), (cid)) < 0) return QLITE_ERR_BUF; } while(0)
-
-#define RV(field)                                                          \
-    do {                                                                   \
-        ql_varint_t _v;                                                    \
-        int _n = ql_varint_decode(buf + pos, len - pos, &_v);             \
-        if (_n < 0 || pos + (size_t)_n > len) return QLITE_ERR_BUF;      \
-        (field) = (__typeof__(field))_v;                                   \
-        pos += (size_t)_n;                                                 \
+#define WB(ptr, len)                  \
+    do {                              \
+        size_t _l = (size_t)(len);    \
+        if (pos + _l > cap)           \
+            return QLITE_ERR_BUF;     \
+        memcpy(buf + pos, (ptr), _l); \
+        pos += _l;                    \
     } while (0)
 
-#define RB(dst, n)                                                         \
-    do {                                                                   \
-        size_t _l = (size_t)(n);                                           \
-        if (pos + _l > len) return QLITE_ERR_BUF;                         \
-        memcpy((dst), buf + pos, _l);                                      \
-        pos += _l;                                                         \
+#define TP_VARINT(id, val)                                    \
+    do {                                                      \
+        if (tp_write_varint(buf, &pos, cap, (id), (val)) < 0) \
+            return QLITE_ERR_BUF;                             \
+    } while (0)
+#define TP_BYTES(id, data, len)                                      \
+    do {                                                             \
+        if (tp_write_bytes(buf, &pos, cap, (id), (data), (len)) < 0) \
+            return QLITE_ERR_BUF;                                    \
+    } while (0)
+#define TP_CID(id, cid)                                    \
+    do {                                                   \
+        if (tp_write_cid(buf, &pos, cap, (id), (cid)) < 0) \
+            return QLITE_ERR_BUF;                          \
     } while (0)
 
+#define RV(field)                                             \
+    do {                                                      \
+        ql_varint_t _v;                                       \
+        int _n = ql_varint_decode(buf + pos, len - pos, &_v); \
+        if (_n < 0 || pos + (size_t)_n > len)                 \
+            return QLITE_ERR_BUF;                             \
+        (field) = (__typeof__(field))_v;                      \
+        pos += (size_t)_n;                                    \
+    } while (0)
+
+#define RB(dst, n)                    \
+    do {                              \
+        size_t _l = (size_t)(n);      \
+        if (pos + _l > len)           \
+            return QLITE_ERR_BUF;     \
+        memcpy((dst), buf + pos, _l); \
+        pos += _l;                    \
+    } while (0)
 
 /**
  * @link: https://www.rfc-editor.org/rfc/rfc9000.html#name-variable-length-integer-enc
@@ -102,16 +114,16 @@ extern "C" {
  * 16 Table 1.
  */
 typedef uint64_t ql_varint_t;
-#define QL_VARINT_MAX      UINT64_C(4611686018427387903)  /* 2^62 − 1  16 */
-#define QL_VARINT_1B_MAX   UINT64_C(63)
-#define QL_VARINT_2B_MAX   UINT64_C(16383)
-#define QL_VARINT_4B_MAX   UINT64_C(1073741823)
+#define QL_VARINT_MAX UINT64_C(4611686018427387903) /* 2^62 − 1  16 */
+#define QL_VARINT_1B_MAX UINT64_C(63)
+#define QL_VARINT_2B_MAX UINT64_C(16383)
+#define QL_VARINT_4B_MAX UINT64_C(1073741823)
 
 /* Minimum encoded sizes for varints — useful for buffer-size assertions */
-#define QL_VARINT_1B_SIZE  1
-#define QL_VARINT_2B_SIZE  2
-#define QL_VARINT_4B_SIZE  4
-#define QL_VARINT_8B_SIZE  8
+#define QL_VARINT_1B_SIZE 1
+#define QL_VARINT_2B_SIZE 2
+#define QL_VARINT_4B_SIZE 4
+#define QL_VARINT_8B_SIZE 8
 
 /* Stream ID 2.1 — 62-bit, lower 2 bits encode initiator + direction */
 typedef uint64_t ql_stream_id_t;
@@ -123,25 +135,25 @@ typedef uint64_t ql_pkt_num_t;
  * Sentinel "no packet number yet received" value.
  * Must not collide with any valid packet number (0 .. 2^62-1).
  */
-#define QL_PKT_NUM_NONE    UINT64_MAX
+#define QL_PKT_NUM_NONE UINT64_MAX
 
 /* Connection ID 5.1 — opaque, 1–20 bytes; len=0 means zero-length CID */
-#define QL_CID_MAX_LEN  20
+#define QL_CID_MAX_LEN 20
 typedef struct {
-    uint8_t  data[QL_CID_MAX_LEN];
-    uint8_t  len;                    /* 0 = zero-length (5.1) */
+    uint8_t data[QL_CID_MAX_LEN];
+    uint8_t len; /* 0 = zero-length (5.1) */
 } ql_cid_t;
 
 /* Stateless Reset Token 10.3.2 — exactly 16 bytes */
-#define QL_RESET_TOKEN_LEN  16
+#define QL_RESET_TOKEN_LEN 16
 typedef struct {
-    uint8_t  data[QL_RESET_TOKEN_LEN];
+    uint8_t data[QL_RESET_TOKEN_LEN];
 } ql_reset_token_t;
 
 /* Path validation data 19.17–19.18 — exactly 8 bytes */
-#define QL_PATH_DATA_LEN  8
+#define QL_PATH_DATA_LEN 8
 typedef struct {
-    uint8_t  data[QL_PATH_DATA_LEN];
+    uint8_t data[QL_PATH_DATA_LEN];
 } ql_path_data_t;
 
 /*
@@ -149,58 +161,57 @@ typedef struct {
  * [largest − (count − 1), largest].
  */
 typedef struct {
-    ql_pkt_num_t  largest;
-    uint64_t      count;    /* number of contiguous packet numbers */
+    ql_pkt_num_t largest;
+    uint64_t count; /* number of contiguous packet numbers */
 } ql_ack_range_t;
 
 /* 15 — QUIC version identifiers */
-#define QL_VERSION_1              UINT32_C(0x00000001)  /* QUIC v1 */
-#define QL_VERSION_NEGOTIATION    UINT32_C(0x00000000)  /* Version Negotiation 17.2.1 */
-#define QL_VERSION_RESERVED_MASK  UINT32_C(0x0A0A0A0A)  /* 6.3 force version-neg */
+#define QL_VERSION_1 UINT32_C(0x00000001)             /* QUIC v1 */
+#define QL_VERSION_NEGOTIATION UINT32_C(0x00000000)   /* Version Negotiation 17.2.1 */
+#define QL_VERSION_RESERVED_MASK UINT32_C(0x0A0A0A0A) /* 6.3 force version-neg */
 
 /* 14.1 — Datagram / MTU limits */
-#define QL_MIN_INITIAL_DATAGRAM_SIZE  1200  /* client Initial MUST be >= 1200 bytes */
-#define QL_MIN_UDP_PAYLOAD_SIZE       1200  /* 14.1 path minimum */
-#define QL_MAX_UDP_PAYLOAD_DEFAULT    65527 /* 18.2 tp default */
-#define QL_PATH_MTU_DEFAULT           1200  /* conservative initial MTU */
-#define QL_PATH_MTU_ETHERNET          1472  /* 1500 - 20(IP) - 8(UDP) */
+#define QL_MIN_INITIAL_DATAGRAM_SIZE 1200 /* client Initial MUST be >= 1200 bytes */
+#define QL_MIN_UDP_PAYLOAD_SIZE 1200      /* 14.1 path minimum */
+#define QL_MAX_UDP_PAYLOAD_DEFAULT 65527  /* 18.2 tp default */
+#define QL_PATH_MTU_DEFAULT 1200          /* conservative initial MTU */
+#define QL_PATH_MTU_ETHERNET 1472         /* 1500 - 20(IP) - 8(UDP) */
 
 /* 13.2 — ACK tracking */
-#define QL_ACK_RANGE_MAX        64    /* max ACK ranges we track in one frame */
-#define QL_ACK_DELAY_THRESHOLD  2     /* send ACK after this many ack-eliciting pkts */
-#define QL_ACK_TIMEOUT_MS      25     /* max ACK delay when not in threshold path */
+#define QL_ACK_RANGE_MAX 64      /* max ACK ranges we track in one frame */
+#define QL_ACK_DELAY_THRESHOLD 2 /* send ACK after this many ack-eliciting pkts */
+#define QL_ACK_TIMEOUT_MS 25     /* max ACK delay when not in threshold path */
 
 /* Key material sizes (RFC 9001) */
-#define QL_AEAD_KEY_MAX_LEN   32   /* AES-256-GCM key */
-#define QL_AEAD_IV_MAX_LEN    12   /* AEAD nonce / IV */
-#define QL_HP_KEY_MAX_LEN     32   /* header-protection key */
-#define QL_SECRET_MAX_LEN     48   /* HKDF secret (SHA-384 output size) */
+#define QL_AEAD_KEY_MAX_LEN 32 /* AES-256-GCM key */
+#define QL_AEAD_IV_MAX_LEN 12  /* AEAD nonce / IV */
+#define QL_HP_KEY_MAX_LEN 32   /* header-protection key */
+#define QL_SECRET_MAX_LEN 48   /* HKDF secret (SHA-384 output size) */
 
 /* 12.1 / RFC 9001 5.3 — AEAD tag is always 16 bytes */
-#define QL_AEAD_TAG_LEN  16
+#define QL_AEAD_TAG_LEN 16
 
 /* RFC 9001 5.4.2 — Header-protection sample is always 16 bytes,
  * taken starting 4 bytes after the start of the encoded packet number */
-#define QL_HP_SAMPLE_LEN     16
-#define QL_HP_SAMPLE_OFFSET   4   /* bytes after start of pkt-num field */
+#define QL_HP_SAMPLE_LEN 16
+#define QL_HP_SAMPLE_OFFSET 4 /* bytes after start of pkt-num field */
 
 /* 12.2 — Coalescing: max datagrams we'll pack before flushing */
-#define QL_MAX_COALESCE_PKTS    8
+#define QL_MAX_COALESCE_PKTS 8
 
 /* Send ring sizes — must be powers of 2 */
-#define QL_SENT_PKT_MAX        4096   /* sent-packet tracking ring */
-#define QL_STREAM_BUF_SIZE     65536  /* per-stream tx/rx ring */
-#define QL_OUTBUF_SIZE         65536  /* assembled-datagram output queue */
-#define QL_CRYPTO_BUF_SIZE     16384  /* per-level CRYPTO reorder buffer */
-
+#define QL_SENT_PKT_MAX 4096     /* sent-packet tracking ring */
+#define QL_STREAM_BUF_SIZE 65536 /* per-stream tx/rx ring */
+#define QL_OUTBUF_SIZE 65536     /* assembled-datagram output queue */
+#define QL_CRYPTO_BUF_SIZE 16384 /* per-level CRYPTO reorder buffer */
 
 /* Server limits */
-#define QL_SERVER_MAX_CONNS    1024
-#define QL_MAX_CIDS            8      /* connection IDs we issue/track 5.1 */
-#define QL_MAX_VERSIONS        16     /* Version Negotiation list */
+#define QL_SERVER_MAX_CONNS 1024
+#define QL_MAX_CIDS 8      /* connection IDs we issue/track 5.1 */
+#define QL_MAX_VERSIONS 16 /* Version Negotiation list */
 
 /* 21.3 — Anti-amplification limit: 3x received bytes before addr validation */
-#define QL_AMPLIFICATION_FACTOR  3
+#define QL_AMPLIFICATION_FACTOR 3
 
 /*
  * 8.1 — A Retry token carries:
@@ -208,12 +219,12 @@ typedef struct {
  *   - a timestamp (for anti-replay 8.1.4)
  * We store an opaque encrypted blob limited to 256 bytes.
  */
-#define QL_TOKEN_MAX_LEN  256
+#define QL_TOKEN_MAX_LEN 256
 
 typedef struct {
-    uint8_t   data[QL_TOKEN_MAX_LEN];
-    size_t    len;
-    uint64_t  issued_at_ms;   /* wall-clock when we generated this token */
+    uint8_t data[QL_TOKEN_MAX_LEN];
+    size_t len;
+    uint64_t issued_at_ms; /* wall-clock when we generated this token */
 } ql_token_t;
 
 /*
@@ -221,9 +232,9 @@ typedef struct {
  * QL_AMPLIFICATION_FACTOR × bytes_received until address is validated.
  */
 typedef struct {
-    bool      validated;          /* true once address confirmed */
-    uint64_t  bytes_received;     /* from unvalidated peer address */
-    uint64_t  bytes_sent;         /* to unvalidated peer address */
+    bool validated;          /* true once address confirmed */
+    uint64_t bytes_received; /* from unvalidated peer address */
+    uint64_t bytes_sent;     /* to unvalidated peer address */
 } ql_addr_valid_t;
 
 /*
@@ -251,21 +262,21 @@ typedef enum {
      * 20.1 — TLS alert codes 6 RFC 9001.
      * CRYPTO_ERROR base: 0x0100 + TLS alert value.
      */
-    QL_ERR_CRYPTO_ERROR_BASE         = 0x0100,
+    QL_ERR_CRYPTO_ERROR_BASE = 0x0100,
 } ql_transport_error_t;
 
 typedef enum {
-    QLITE_OK           =  0,
-    QLITE_ERR_AGAIN    = -1,   /* would block — try again */
-    QLITE_ERR_BUF      = -2,   /* destination buffer too small */
-    QLITE_ERR_PROTO    = -3,   /* protocol violation */
-    QLITE_ERR_CRYPTO   = -4,   /* AEAD authentication failure / TLS error */
-    QLITE_ERR_STREAM   = -5,   /* invalid stream state transition */
-    QLITE_ERR_FC       = -6,   /* flow-control limit exceeded */
-    QLITE_ERR_ARGS     = -7,   /* invalid arguments */
-    QLITE_ERR_NOMEM    = -8,   /* allocation failure */
-    QLITE_ERR_CLOSED   = -9,   /* connection or stream already closed */
-    QLITE_ERR_INTERNAL = -10,  /* internal / unexpected error */
+    QLITE_OK             = 0,
+    QLITE_ERR_AGAIN      = -1,  /* would block — try again */
+    QLITE_ERR_BUF        = -2,  /* destination buffer too small */
+    QLITE_ERR_PROTO      = -3,  /* protocol violation */
+    QLITE_ERR_CRYPTO     = -4,  /* AEAD authentication failure / TLS error */
+    QLITE_ERR_STREAM     = -5,  /* invalid stream state transition */
+    QLITE_ERR_FC         = -6,  /* flow-control limit exceeded */
+    QLITE_ERR_ARGS       = -7,  /* invalid arguments */
+    QLITE_ERR_NOMEM      = -8,  /* allocation failure */
+    QLITE_ERR_CLOSED     = -9,  /* connection or stream already closed */
+    QLITE_ERR_INTERNAL   = -10, /* internal / unexpected error */
     QLITE_ERR_WOULDBLOCK = -11, /* non-blocking socket would block */
 } qlite_err_t;
 
@@ -279,7 +290,7 @@ typedef uint64_t ql_app_error_t;
 typedef enum {
     QL_PN_SPACE_INITIAL   = 0,
     QL_PN_SPACE_HANDSHAKE = 1,
-    QL_PN_SPACE_APP       = 2,   /* 1-RTT / Application data */
+    QL_PN_SPACE_APP       = 2, /* 1-RTT / Application data */
     QL_PN_SPACE_COUNT     = 3,
 } ql_pn_space_t;
 
@@ -287,72 +298,72 @@ typedef enum {
  * @link: https://www.rfc-editor.org/rfc/rfc9000.html?#name-frame-types-and-formats
  */
 typedef enum {
-    /* 19.1  */ QL_FRAME_PADDING               = 0x00,
-    /* 19.2  */ QL_FRAME_PING                  = 0x01,
-    /* 19.3  */ QL_FRAME_ACK                   = 0x02,  /* no ECN counts  */
-    /* 19.3  */ QL_FRAME_ACK_ECN               = 0x03,  /* with ECN counts */
-    /* 19.4  */ QL_FRAME_RESET_STREAM          = 0x04,
-    /* 19.5  */ QL_FRAME_STOP_SENDING          = 0x05,
-    /* 19.6  */ QL_FRAME_CRYPTO                = 0x06,
-    /* 19.7  */ QL_FRAME_NEW_TOKEN             = 0x07,
+    /* 19.1  */ QL_FRAME_PADDING      = 0x00,
+    /* 19.2  */ QL_FRAME_PING         = 0x01,
+    /* 19.3  */ QL_FRAME_ACK          = 0x02, /* no ECN counts  */
+    /* 19.3  */ QL_FRAME_ACK_ECN      = 0x03, /* with ECN counts */
+    /* 19.4  */ QL_FRAME_RESET_STREAM = 0x04,
+    /* 19.5  */ QL_FRAME_STOP_SENDING = 0x05,
+    /* 19.6  */ QL_FRAME_CRYPTO       = 0x06,
+    /* 19.7  */ QL_FRAME_NEW_TOKEN    = 0x07,
     /* 19.8 — STREAM flags OR'd into 0x08 */
-    /* 19.8  */ QL_FRAME_STREAM                = 0x08,  /* OFF=0,LEN=0,FIN=0 */
-    /* 19.8  */ QL_FRAME_STREAM_FIN            = 0x09,  /* OFF=0,LEN=0,FIN=1 */
-    /* 19.8  */ QL_FRAME_STREAM_LEN            = 0x0A,  /* OFF=0,LEN=1,FIN=0 */
-    /* 19.8  */ QL_FRAME_STREAM_LEN_FIN        = 0x0B,  /* OFF=0,LEN=1,FIN=1 */
-    /* 19.8  */ QL_FRAME_STREAM_OFF            = 0x0C,  /* OFF=1,LEN=0,FIN=0 */
-    /* 19.8  */ QL_FRAME_STREAM_OFF_FIN        = 0x0D,  /* OFF=1,LEN=0,FIN=1 */
-    /* 19.8  */ QL_FRAME_STREAM_OFF_LEN        = 0x0E,  /* OFF=1,LEN=1,FIN=0 */
-    /* 19.8  */ QL_FRAME_STREAM_OFF_LEN_FIN    = 0x0F,  /* OFF=1,LEN=1,FIN=1 */
-    /* 19.9  */ QL_FRAME_MAX_DATA              = 0x10,
-    /* 19.10 */ QL_FRAME_MAX_STREAM_DATA       = 0x11,
-    /* 19.11 */ QL_FRAME_MAX_STREAMS_BIDI      = 0x12,
-    /* 19.11 */ QL_FRAME_MAX_STREAMS_UNI       = 0x13,
-    /* 19.12 */ QL_FRAME_DATA_BLOCKED          = 0x14,
-    /* 19.13 */ QL_FRAME_STREAM_DATA_BLOCKED   = 0x15,
-    /* 19.14 */ QL_FRAME_STREAMS_BLOCKED_BIDI  = 0x16,
-    /* 19.14 */ QL_FRAME_STREAMS_BLOCKED_UNI   = 0x17,
-    /* 19.15 */ QL_FRAME_NEW_CONNECTION_ID     = 0x18,
-    /* 19.16 */ QL_FRAME_RETIRE_CONNECTION_ID  = 0x19,
-    /* 19.17 */ QL_FRAME_PATH_CHALLENGE        = 0x1A,
-    /* 19.18 */ QL_FRAME_PATH_RESPONSE         = 0x1B,
-    /* 19.19 */ QL_FRAME_CONNECTION_CLOSE      = 0x1C,  /* transport error */
-    /* 19.19 */ QL_FRAME_CONNECTION_CLOSE_APP  = 0x1D,  /* app-layer error */
-    /* 19.20 */ QL_FRAME_HANDSHAKE_DONE        = 0x1E,
+    /* 19.8  */ QL_FRAME_STREAM               = 0x08, /* OFF=0,LEN=0,FIN=0 */
+    /* 19.8  */ QL_FRAME_STREAM_FIN           = 0x09, /* OFF=0,LEN=0,FIN=1 */
+    /* 19.8  */ QL_FRAME_STREAM_LEN           = 0x0A, /* OFF=0,LEN=1,FIN=0 */
+    /* 19.8  */ QL_FRAME_STREAM_LEN_FIN       = 0x0B, /* OFF=0,LEN=1,FIN=1 */
+    /* 19.8  */ QL_FRAME_STREAM_OFF           = 0x0C, /* OFF=1,LEN=0,FIN=0 */
+    /* 19.8  */ QL_FRAME_STREAM_OFF_FIN       = 0x0D, /* OFF=1,LEN=0,FIN=1 */
+    /* 19.8  */ QL_FRAME_STREAM_OFF_LEN       = 0x0E, /* OFF=1,LEN=1,FIN=0 */
+    /* 19.8  */ QL_FRAME_STREAM_OFF_LEN_FIN   = 0x0F, /* OFF=1,LEN=1,FIN=1 */
+    /* 19.9  */ QL_FRAME_MAX_DATA             = 0x10,
+    /* 19.10 */ QL_FRAME_MAX_STREAM_DATA      = 0x11,
+    /* 19.11 */ QL_FRAME_MAX_STREAMS_BIDI     = 0x12,
+    /* 19.11 */ QL_FRAME_MAX_STREAMS_UNI      = 0x13,
+    /* 19.12 */ QL_FRAME_DATA_BLOCKED         = 0x14,
+    /* 19.13 */ QL_FRAME_STREAM_DATA_BLOCKED  = 0x15,
+    /* 19.14 */ QL_FRAME_STREAMS_BLOCKED_BIDI = 0x16,
+    /* 19.14 */ QL_FRAME_STREAMS_BLOCKED_UNI  = 0x17,
+    /* 19.15 */ QL_FRAME_NEW_CONNECTION_ID    = 0x18,
+    /* 19.16 */ QL_FRAME_RETIRE_CONNECTION_ID = 0x19,
+    /* 19.17 */ QL_FRAME_PATH_CHALLENGE       = 0x1A,
+    /* 19.18 */ QL_FRAME_PATH_RESPONSE        = 0x1B,
+    /* 19.19 */ QL_FRAME_CONNECTION_CLOSE     = 0x1C, /* transport error */
+    /* 19.19 */ QL_FRAME_CONNECTION_CLOSE_APP = 0x1D, /* app-layer error */
+    /* 19.20 */ QL_FRAME_HANDSHAKE_DONE       = 0x1E,
 } ql_frame_type_t;
 
 /* 19.8 — STREAM frame bit-flags (within 0x08..0x0F) */
-#define QL_STREAM_FLAG_FIN  0x01u
-#define QL_STREAM_FLAG_LEN  0x02u
-#define QL_STREAM_FLAG_OFF  0x04u
+#define QL_STREAM_FLAG_FIN 0x01u
+#define QL_STREAM_FLAG_LEN 0x02u
+#define QL_STREAM_FLAG_OFF 0x04u
 
 /* 18.2 — Transport parameter defaults */
-#define QL_DEFAULT_ACK_DELAY_EXP     3    /* 2^3 = 8 µs units */
-#define QL_DEFAULT_MAX_ACK_DELAY_MS  25
-#define QL_DEFAULT_ACTIVE_CID_LIMIT  2
+#define QL_DEFAULT_ACK_DELAY_EXP 3 /* 2^3 = 8 µs units */
+#define QL_DEFAULT_MAX_ACK_DELAY_MS 25
+#define QL_DEFAULT_ACTIVE_CID_LIMIT 2
 /*
  *      TRANSPORT PARAMETERS  7.4 / 18.2
  *      Exchanged inside the TLS handshake ClientHello / EncryptedExtensions.
  */
 
 typedef enum {
-    QL_TP_ORIGINAL_DST_CID                   = 0x00,
-    QL_TP_MAX_IDLE_TIMEOUT                   = 0x01,  /* varint, ms */
-    QL_TP_STATELESS_RESET_TOKEN              = 0x02,  /* 16 bytes */
-    QL_TP_MAX_UDP_PAYLOAD_SIZE               = 0x03,  /* varint, >= 1200 */
-    QL_TP_INITIAL_MAX_DATA                   = 0x04,
-    QL_TP_INITIAL_MAX_STREAM_DATA_BIDI_LOCAL = 0x05,
-    QL_TP_INITIAL_MAX_STREAM_DATA_BIDI_REMOTE= 0x06,
-    QL_TP_INITIAL_MAX_STREAM_DATA_UNI        = 0x07,
-    QL_TP_INITIAL_MAX_STREAMS_BIDI           = 0x08,
-    QL_TP_INITIAL_MAX_STREAMS_UNI            = 0x09,
-    QL_TP_ACK_DELAY_EXPONENT                 = 0x0A,  /* default 3 */
-    QL_TP_MAX_ACK_DELAY                      = 0x0B,  /* varint, ms, default 25 */
-    QL_TP_DISABLE_ACTIVE_MIGRATION           = 0x0C,  /* empty presence = true */
-    QL_TP_PREFERRED_ADDRESS                  = 0x0D,  /* server only */
-    QL_TP_ACTIVE_CONNECTION_ID_LIMIT         = 0x0E,  /* varint, >= 2 */
-    QL_TP_INITIAL_SOURCE_CID                 = 0x0F,
-    QL_TP_RETRY_SOURCE_CID                   = 0x10,
+    QL_TP_ORIGINAL_DST_CID                    = 0x00,
+    QL_TP_MAX_IDLE_TIMEOUT                    = 0x01, /* varint, ms */
+    QL_TP_STATELESS_RESET_TOKEN               = 0x02, /* 16 bytes */
+    QL_TP_MAX_UDP_PAYLOAD_SIZE                = 0x03, /* varint, >= 1200 */
+    QL_TP_INITIAL_MAX_DATA                    = 0x04,
+    QL_TP_INITIAL_MAX_STREAM_DATA_BIDI_LOCAL  = 0x05,
+    QL_TP_INITIAL_MAX_STREAM_DATA_BIDI_REMOTE = 0x06,
+    QL_TP_INITIAL_MAX_STREAM_DATA_UNI         = 0x07,
+    QL_TP_INITIAL_MAX_STREAMS_BIDI            = 0x08,
+    QL_TP_INITIAL_MAX_STREAMS_UNI             = 0x09,
+    QL_TP_ACK_DELAY_EXPONENT                  = 0x0A, /* default 3 */
+    QL_TP_MAX_ACK_DELAY                       = 0x0B, /* varint, ms, default 25 */
+    QL_TP_DISABLE_ACTIVE_MIGRATION            = 0x0C, /* empty presence = true */
+    QL_TP_PREFERRED_ADDRESS                   = 0x0D, /* server only */
+    QL_TP_ACTIVE_CONNECTION_ID_LIMIT          = 0x0E, /* varint, >= 2 */
+    QL_TP_INITIAL_SOURCE_CID                  = 0x0F,
+    QL_TP_RETRY_SOURCE_CID                    = 0x10,
 } ql_tp_id_t;
 
 /*
@@ -363,7 +374,7 @@ typedef enum {
     analysis for protected packets
 */
 typedef struct {
-    size_t  length;   /* number of zero bytes emitted or consumed */
+    size_t length; /* number of zero bytes emitted or consumed */
 } ql_frame_padding_t;
 
 /*
@@ -386,16 +397,16 @@ typedef struct {
     their congestion state.
 */
 typedef struct {
-    ql_pkt_num_t   largest_acked;
-    uint64_t       ack_delay;          /* in 2^ack_delay_exponent µs units */
-    uint64_t       range_count;        /* additional ACK range pairs */
-    uint64_t       first_ack_range;    /* acked packets below largest_acked */
+    ql_pkt_num_t largest_acked;
+    uint64_t ack_delay;       /* in 2^ack_delay_exponent µs units */
+    uint64_t range_count;     /* additional ACK range pairs */
+    uint64_t first_ack_range; /* acked packets below largest_acked */
     ql_ack_range_t ranges[QL_ACK_RANGE_MAX];
     /* 19.3.2 — ECN counts, present only in ACK_ECN frame */
-    uint64_t  ect0_count;
-    uint64_t  ect1_count;
-    uint64_t  ecn_ce_count;
-    bool      has_ecn;
+    uint64_t ect0_count;
+    uint64_t ect1_count;
+    uint64_t ecn_ce_count;
+    bool has_ecn;
 } ql_frame_ack_t;
 
 /*
@@ -409,9 +420,9 @@ typedef struct {
     stream MUST terminate the connection with error STREAM_STATE_ERROR.
 */
 typedef struct {
-    ql_stream_id_t  stream_id;
-    ql_app_error_t  error_code;
-    uint64_t        final_size;   /* byte offset of stream end */
+    ql_stream_id_t stream_id;
+    ql_app_error_t error_code;
+    uint64_t final_size; /* byte offset of stream end */
 } ql_frame_reset_stream_t;
 
 /*
@@ -427,8 +438,8 @@ typedef struct {
     stream MUST terminate the connection with error STREAM_STATE_ERROR.
 */
 typedef struct {
-    ql_stream_id_t  stream_id;
-    ql_app_error_t  error_code;
+    ql_stream_id_t stream_id;
+    ql_app_error_t error_code;
 } ql_frame_stop_sending_t;
 
 /*
@@ -441,9 +452,9 @@ typedef struct {
     and the end of the stream.
 */
 typedef struct {
-    uint64_t        offset;
-    uint64_t        length;
-    const uint8_t  *data;   /* points into decode buffer — not owned */
+    uint64_t offset;
+    uint64_t length;
+    const uint8_t *data; /* points into decode buffer — not owned */
 } ql_frame_crypto_t;
 
 /*
@@ -452,8 +463,8 @@ typedef struct {
     connection.
 */
 typedef struct {
-    uint64_t        token_length;
-    const uint8_t  *token;  /* points into decode buffer — not owned */
+    uint64_t token_length;
+    const uint8_t *token; /* points into decode buffer — not owned */
 } ql_frame_new_token_t;
 
 /*
@@ -476,27 +487,26 @@ typedef struct {
         The FIN bit (0x01) indicates that the frame
 */
 typedef struct {
-    ql_stream_id_t  stream_id;
-    uint64_t        offset;       /* present only if has_offset; else 0 */
-    uint64_t        length;       /* present only if has_length */
-    const uint8_t  *data;         /* points into decode buffer — not owned */
-    bool            has_offset;   /* OFF bit */
-    bool            has_length;   /* LEN bit */
-    bool            fin;          /* FIN bit */
+    ql_stream_id_t stream_id;
+    uint64_t offset;     /* present only if has_offset; else 0 */
+    uint64_t length;     /* present only if has_length */
+    const uint8_t *data; /* points into decode buffer — not owned */
+    bool has_offset;     /* OFF bit */
+    bool has_length;     /* LEN bit */
+    bool fin;            /* FIN bit */
 } ql_frame_stream_t;
 
-
 typedef struct {
-    uint64_t  maximum_data;
+    uint64_t maximum_data;
 } ql_frame_max_data_t;
 
 typedef struct {
-    ql_stream_id_t  stream_id;
-    uint64_t        maximum_stream_data;
+    ql_stream_id_t stream_id;
+    uint64_t maximum_stream_data;
 } ql_frame_max_stream_data_t;
 
 typedef struct {
-    uint64_t  maximum_streams;
+    uint64_t maximum_streams;
 } ql_frame_max_streams_t;
 
 /*
@@ -506,7 +516,7 @@ typedef struct {
     flow control algorithms;
 */
 typedef struct {
-    uint64_t  data_limit;   /* connection-level limit we're blocked at */
+    uint64_t data_limit; /* connection-level limit we're blocked at */
 } ql_frame_data_blocked_t;
 
 /*
@@ -515,8 +525,8 @@ typedef struct {
     control. This frame is analogous to DATA_BLOCKED
 */
 typedef struct {
-    ql_stream_id_t  stream_id;
-    uint64_t        stream_data_limit;
+    ql_stream_id_t stream_id;
+    uint64_t stream_data_limit;
 } ql_frame_stream_data_blocked_t;
 
 /*
@@ -528,7 +538,7 @@ typedef struct {
     indicate reaching the unidirectional stream limit.
 */
 typedef struct {
-    uint64_t  stream_limit;
+    uint64_t stream_limit;
 } ql_frame_streams_blocked_t;
 
 /*
@@ -537,10 +547,10 @@ typedef struct {
     linkability when migrating connections;
 */
 typedef struct {
-    uint64_t          sequence_num;
-    uint64_t          retire_prior_to;
-    ql_cid_t          cid;
-    ql_reset_token_t  stateless_reset_token;
+    uint64_t sequence_num;
+    uint64_t retire_prior_to;
+    ql_cid_t cid;
+    ql_reset_token_t stateless_reset_token;
 } ql_frame_new_cid_t;
 
 /*
@@ -553,7 +563,7 @@ typedef struct {
     delivered to a peer using the NEW_CONNECTION_ID frame
 */
 typedef struct {
-    uint64_t  sequence_num;
+    uint64_t sequence_num;
 } ql_frame_retire_cid_t;
 
 /*
@@ -562,14 +572,14 @@ typedef struct {
     connection migration.
 */
 typedef struct {
-    ql_path_data_t  data;   /* 8 random bytes */
+    ql_path_data_t data; /* 8 random bytes */
 } ql_frame_path_challenge_t;
 
 /*
     A PATH_RESPONSE frame (type=0x1b) is sent in response to a PATH_CHALLENGE frame.
 */
 typedef struct {
-    ql_path_data_t  data;   /* verbatim echo of the PATH_CHALLENGE data */
+    ql_path_data_t data; /* verbatim echo of the PATH_CHALLENGE data */
 } ql_frame_path_response_t;
 
 /*
@@ -582,12 +592,12 @@ typedef struct {
     that uses QUIC.
 */
 typedef struct {
-    ql_transport_error_t  error_code;      /* transport close: 20.1 code */
-    ql_app_error_t        app_error_code;  /* app close: opaque error code */
-    ql_frame_type_t       frame_type;      /* causal frame type (0x1C only) */
-    uint64_t              reason_length;
-    const uint8_t        *reason_phrase;   /* UTF-8, not null-terminated */
-    bool                  is_app;          /* true → 0x1D, false → 0x1C */
+    ql_transport_error_t error_code; /* transport close: 20.1 code */
+    ql_app_error_t app_error_code;   /* app close: opaque error code */
+    ql_frame_type_t frame_type;      /* causal frame type (0x1C only) */
+    uint64_t reason_length;
+    const uint8_t *reason_phrase; /* UTF-8, not null-terminated */
+    bool is_app;                  /* true → 0x1D, false → 0x1C */
 } ql_frame_conn_close_t;
 
 /*
@@ -602,28 +612,28 @@ typedef struct {
  * @link: https://www.rfc-editor.org/rfc/rfc9000.html#section-12.4-6
  */
 typedef struct {
-    ql_frame_type_t  type;
+    ql_frame_type_t type;
     union {
-        ql_frame_padding_t              padding;
-        ql_frame_ping_t                 ping;
-        ql_frame_ack_t                  ack;
-        ql_frame_reset_stream_t         reset_stream;
-        ql_frame_stop_sending_t         stop_sending;
-        ql_frame_crypto_t               crypto;
-        ql_frame_new_token_t            new_token;
-        ql_frame_stream_t               stream;
-        ql_frame_max_data_t             max_data;
-        ql_frame_max_stream_data_t      max_stream_data;
-        ql_frame_max_streams_t          max_streams;
-        ql_frame_data_blocked_t         data_blocked;
-        ql_frame_stream_data_blocked_t  stream_data_blocked;
-        ql_frame_streams_blocked_t      streams_blocked;
-        ql_frame_new_cid_t              new_cid;
-        ql_frame_retire_cid_t           retire_cid;
-        ql_frame_path_challenge_t       path_challenge;
-        ql_frame_path_response_t        path_response;
-        ql_frame_conn_close_t           conn_close;
-        ql_frame_handshake_done_t       handshake_done;
+        ql_frame_padding_t padding;
+        ql_frame_ping_t ping;
+        ql_frame_ack_t ack;
+        ql_frame_reset_stream_t reset_stream;
+        ql_frame_stop_sending_t stop_sending;
+        ql_frame_crypto_t crypto;
+        ql_frame_new_token_t new_token;
+        ql_frame_stream_t stream;
+        ql_frame_max_data_t max_data;
+        ql_frame_max_stream_data_t max_stream_data;
+        ql_frame_max_streams_t max_streams;
+        ql_frame_data_blocked_t data_blocked;
+        ql_frame_stream_data_blocked_t stream_data_blocked;
+        ql_frame_streams_blocked_t streams_blocked;
+        ql_frame_new_cid_t new_cid;
+        ql_frame_retire_cid_t retire_cid;
+        ql_frame_path_challenge_t path_challenge;
+        ql_frame_path_response_t path_response;
+        ql_frame_conn_close_t conn_close;
+        ql_frame_handshake_done_t handshake_done;
     } u;
 } ql_frame_t;
 
@@ -633,19 +643,19 @@ typedef struct {
  * header-protection key (hp).
  */
 typedef struct {
-    uint8_t  key[QL_AEAD_KEY_MAX_LEN];
-    uint8_t  iv[QL_AEAD_IV_MAX_LEN];
-    uint8_t  hp[QL_HP_KEY_MAX_LEN];
-    uint8_t  key_len;
-    uint8_t  iv_len;
-    uint8_t  hp_len;
-    bool     is_set;
+    uint8_t key[QL_AEAD_KEY_MAX_LEN];
+    uint8_t iv[QL_AEAD_IV_MAX_LEN];
+    uint8_t hp[QL_HP_KEY_MAX_LEN];
+    uint8_t key_len;
+    uint8_t iv_len;
+    uint8_t hp_len;
+    bool is_set;
 } ql_keys_t;
 
 /* Read + write keys for one encryption level */
 typedef struct {
-    ql_keys_t  read;   /* decryption */
-    ql_keys_t  write;  /* encryption */
+    ql_keys_t read;  /* decryption */
+    ql_keys_t write; /* encryption */
 } ql_key_pair_t;
 
 /*
@@ -654,48 +664,48 @@ typedef struct {
  * packets that arrive using the new phase before we've fully rotated.
  */
 typedef struct {
-    ql_key_pair_t  current;           /* keys for the active phase */
-    ql_key_pair_t  next;              /* keys derived ready for next phase */
-    bool           current_phase;     /* 0 or 1 — matches key_phase bit */
-    bool           update_pending;    /* we've triggered an update, not sent yet */
-    bool           peer_updated;      /* we saw the peer's key_phase flip */
-    uint64_t       update_sent_pn;    /* first pkt-num sent with new key */
+    ql_key_pair_t current;   /* keys for the active phase */
+    ql_key_pair_t next;      /* keys derived ready for next phase */
+    bool current_phase;      /* 0 or 1 — matches key_phase bit */
+    bool update_pending;     /* we've triggered an update, not sent yet */
+    bool peer_updated;       /* we saw the peer's key_phase flip */
+    uint64_t update_sent_pn; /* first pkt-num sent with new key */
 } ql_key_update_t;
 
 /**
  * @link: https://www.rfc-editor.org/rfc/rfc9000.html?#name-packet-formats
  */
 typedef enum {
-    QL_PKT_VERSION_NEGOTIATION = 0,  /* 17.2.1 — special, no type bits */
-    QL_PKT_INITIAL             = 1,  /* 17.2.2 — long header, type 0x00 */
-    QL_PKT_0RTT                = 2,  /* 17.2.3 — long header, type 0x01 */
-    QL_PKT_HANDSHAKE           = 3,  /* 17.2.4 — long header, type 0x02 */
-    QL_PKT_RETRY               = 4,  /* 17.2.5 — long header, type 0x03 */
-    QL_PKT_1RTT                = 5,  /* 17.3.1 — short header */
+    QL_PKT_VERSION_NEGOTIATION = 0, /* 17.2.1 — special, no type bits */
+    QL_PKT_INITIAL             = 1, /* 17.2.2 — long header, type 0x00 */
+    QL_PKT_0RTT                = 2, /* 17.2.3 — long header, type 0x01 */
+    QL_PKT_HANDSHAKE           = 3, /* 17.2.4 — long header, type 0x02 */
+    QL_PKT_RETRY               = 4, /* 17.2.5 — long header, type 0x03 */
+    QL_PKT_1RTT                = 5, /* 17.3.1 — short header */
 } ql_pkt_type_t;
 
 /* Long-header first-byte bit masks 17.2 */
-#define QL_LONG_HDR_FORM           0x80u  /* bit 7 = 1 → long header */
-#define QL_LONG_HDR_FIXED_BIT      0x40u  /* MUST be 1 */
-#define QL_LONG_HDR_TYPE_MASK      0x30u  /* bits 4-5: long-header packet type */
-#define QL_LONG_HDR_TYPE_SHIFT     4
-#define QL_LONG_HDR_RESERVED_MASK  0x0Cu  /* MUST be 0 after header protection */
-#define QL_LONG_HDR_PKT_NUM_MASK   0x03u  /* encoded pkt-num length − 1 */
+#define QL_LONG_HDR_FORM 0x80u      /* bit 7 = 1 → long header */
+#define QL_LONG_HDR_FIXED_BIT 0x40u /* MUST be 1 */
+#define QL_LONG_HDR_TYPE_MASK 0x30u /* bits 4-5: long-header packet type */
+#define QL_LONG_HDR_TYPE_SHIFT 4
+#define QL_LONG_HDR_RESERVED_MASK 0x0Cu /* MUST be 0 after header protection */
+#define QL_LONG_HDR_PKT_NUM_MASK 0x03u  /* encoded pkt-num length − 1 */
 
 /* Short (1-RTT) header first-byte bit masks 17.3 */
-#define QL_SHORT_HDR_FORM          0x00u  /* bit 7 = 0 → short header */
-#define QL_SHORT_HDR_FIXED_BIT     0x40u  /* MUST be 1 */
-#define QL_SHORT_HDR_SPIN_BIT      0x20u  /* 17.4 latency spin */
-#define QL_SHORT_HDR_RESERVED_MASK 0x18u  /* MUST be 0 after header protection */
-#define QL_SHORT_HDR_KEY_PHASE     0x04u  /* key-update phase bit RFC 9001 5.4 */
-#define QL_SHORT_HDR_PKT_NUM_MASK  0x03u  /* encoded pkt-num length − 1 */
+#define QL_SHORT_HDR_FORM 0x00u          /* bit 7 = 0 → short header */
+#define QL_SHORT_HDR_FIXED_BIT 0x40u     /* MUST be 1 */
+#define QL_SHORT_HDR_SPIN_BIT 0x20u      /* 17.4 latency spin */
+#define QL_SHORT_HDR_RESERVED_MASK 0x18u /* MUST be 0 after header protection */
+#define QL_SHORT_HDR_KEY_PHASE 0x04u     /* key-update phase bit RFC 9001 5.4 */
+#define QL_SHORT_HDR_PKT_NUM_MASK 0x03u  /* encoded pkt-num length − 1 */
 
 /* Test first byte: long or short? */
-#define QL_PKT_IS_LONG(first_byte)  (((first_byte) & 0x80u) != 0)
+#define QL_PKT_IS_LONG(first_byte) (((first_byte) & 0x80u) != 0)
 #define QL_PKT_IS_SHORT(first_byte) (((first_byte) & 0x80u) == 0)
 
 /* 17.1 — Maximum packet-number field length in bytes */
-#define QL_PKT_NUM_MAX_ENCODED_LEN  4
+#define QL_PKT_NUM_MAX_ENCODED_LEN 4
 
 /* Long header (Initial, 0-RTT, Handshake, Retry) 17.2 */
 /*
@@ -704,51 +714,51 @@ typedef enum {
     a sender switches to sending packets using the short header
 */
 typedef struct {
-    ql_pkt_type_t  pkt_type;
-    uint8_t        first_byte;
-    uint32_t       version;
-    ql_cid_t       dst_cid;
-    ql_cid_t       src_cid;
+    ql_pkt_type_t pkt_type;
+    uint8_t first_byte;
+    uint32_t version;
+    ql_cid_t dst_cid;
+    ql_cid_t src_cid;
     /* Initial only 17.2.2 */
-    uint8_t        token[QL_TOKEN_MAX_LEN];
-    size_t         token_len;
+    uint8_t token[QL_TOKEN_MAX_LEN];
+    size_t token_len;
     /* Retry only 17.2.5 — AES-128-GCM tag, 16 bytes */
-    uint8_t        retry_integrity_tag[QL_AEAD_TAG_LEN];
-    bool           is_retry;
+    uint8_t retry_integrity_tag[QL_AEAD_TAG_LEN];
+    bool is_retry;
     /* Present in Initial, 0-RTT, Handshake (not Retry, not VN) */
-    uint64_t       length;       /* payload length varint */
-    ql_pkt_num_t   pkt_num;      /* decoded full packet number */
-    uint8_t        pkt_num_len;  /* encoded width: 1–4 bytes */
+    uint64_t length;      /* payload length varint */
+    ql_pkt_num_t pkt_num; /* decoded full packet number */
+    uint8_t pkt_num_len;  /* encoded width: 1–4 bytes */
 } ql_long_hdr_t;
 
 /* Short (1-RTT) header 17.3.1 */
 typedef struct {
-    uint8_t       first_byte;
-    ql_cid_t      dst_cid;
-    ql_pkt_num_t  pkt_num;
-    uint8_t       pkt_num_len;
-    bool          spin_bit;   /* 17.4 */
-    bool          key_phase;  /* RFC 9001 5.4 */
+    uint8_t first_byte;
+    ql_cid_t dst_cid;
+    ql_pkt_num_t pkt_num;
+    uint8_t pkt_num_len;
+    bool spin_bit;  /* 17.4 */
+    bool key_phase; /* RFC 9001 5.4 */
 } ql_short_hdr_t;
 
 /* Unified view after parsing */
 typedef struct {
-    bool  is_long;
+    bool is_long;
     union {
-        ql_long_hdr_t   lhdr;
-        ql_short_hdr_t  shdr;
+        ql_long_hdr_t lhdr;
+        ql_short_hdr_t shdr;
     } h;
     /* Decrypted payload slice within the datagram buffer (AEAD tag removed) */
-    const uint8_t  *payload;
-    size_t          payload_len;
+    const uint8_t *payload;
+    size_t payload_len;
 } ql_pkt_hdr_t;
 
 /* 17.2.1 — Version Negotiation Packet */
 typedef struct {
-    ql_cid_t  dst_cid;
-    ql_cid_t  src_cid;
-    uint32_t  versions[QL_MAX_VERSIONS];
-    int       version_count;
+    ql_cid_t dst_cid;
+    ql_cid_t src_cid;
+    uint32_t versions[QL_MAX_VERSIONS];
+    int version_count;
 } ql_ver_neg_pkt_t;
 
 /**
@@ -756,12 +766,12 @@ typedef struct {
  */
 /* 9.6.1 / 18.2 — server's preferred address */
 typedef struct {
-    uint8_t           ipv4[4];
-    uint16_t          ipv4_port;
-    uint8_t           ipv6[16];
-    uint16_t          ipv6_port;
-    ql_cid_t          cid;
-    ql_reset_token_t  reset_token;
+    uint8_t ipv4[4];
+    uint16_t ipv4_port;
+    uint8_t ipv6[16];
+    uint16_t ipv6_port;
+    ql_cid_t cid;
+    ql_reset_token_t reset_token;
 } ql_preferred_addr_t;
 
 /**
@@ -769,28 +779,28 @@ typedef struct {
  */
 /* Full set of negotiated transport parameters for one peer */
 typedef struct {
-    uint64_t  max_idle_timeout_ms;                   /* 0 = disabled */
-    uint64_t  max_udp_payload_size;                  /* default 65527 */
-    uint64_t  initial_max_data;
-    uint64_t  initial_max_stream_data_bidi_local;
-    uint64_t  initial_max_stream_data_bidi_remote;
-    uint64_t  initial_max_stream_data_uni;
-    uint64_t  initial_max_streams_bidi;
-    uint64_t  initial_max_streams_uni;
-    uint64_t  ack_delay_exponent;                    /* default 3 */
-    uint64_t  max_ack_delay_ms;                      /* default 25 */
-    uint64_t  active_cid_limit;                      /* >= 2 */
-    bool      disable_active_migration;
+    uint64_t max_idle_timeout_ms;  /* 0 = disabled */
+    uint64_t max_udp_payload_size; /* default 65527 */
+    uint64_t initial_max_data;
+    uint64_t initial_max_stream_data_bidi_local;
+    uint64_t initial_max_stream_data_bidi_remote;
+    uint64_t initial_max_stream_data_uni;
+    uint64_t initial_max_streams_bidi;
+    uint64_t initial_max_streams_uni;
+    uint64_t ack_delay_exponent; /* default 3 */
+    uint64_t max_ack_delay_ms;   /* default 25 */
+    uint64_t active_cid_limit;   /* >= 2 */
+    bool disable_active_migration;
 
-    ql_cid_t  original_dst_cid;
-    ql_cid_t  initial_src_cid;
-    ql_cid_t  retry_src_cid;
-    bool      has_retry_src_cid;
+    ql_cid_t original_dst_cid;
+    ql_cid_t initial_src_cid;
+    ql_cid_t retry_src_cid;
+    bool has_retry_src_cid;
 
-    bool              has_stateless_reset_token;
-    ql_reset_token_t  stateless_reset_token;
+    bool has_stateless_reset_token;
+    ql_reset_token_t stateless_reset_token;
 
-    bool                has_preferred_addr;
+    bool has_preferred_addr;
     ql_preferred_addr_t preferred_addr;
 } ql_transport_params_t;
 
@@ -798,27 +808,27 @@ typedef struct {
  * @link: https://datatracker.ietf.org/doc/html/rfc9000#name-stream-types-and-identifier
  */
 typedef enum {
-    QL_STREAM_TYPE_CLIENT_BIDI = 0x00,  /* client-initiated bidirectional  2.1 */
-    QL_STREAM_TYPE_SERVER_BIDI = 0x01,  /* server-initiated bidirectional  2.1 */
-    QL_STREAM_TYPE_CLIENT_UNI  = 0x02,  /* client-initiated unidirectional 2.1 */
-    QL_STREAM_TYPE_SERVER_UNI  = 0x03,  /* server-initiated unidirectional 2.1 */
+    QL_STREAM_TYPE_CLIENT_BIDI = 0x00, /* client-initiated bidirectional  2.1 */
+    QL_STREAM_TYPE_SERVER_BIDI = 0x01, /* server-initiated bidirectional  2.1 */
+    QL_STREAM_TYPE_CLIENT_UNI  = 0x02, /* client-initiated unidirectional 2.1 */
+    QL_STREAM_TYPE_SERVER_UNI  = 0x03, /* server-initiated unidirectional 2.1 */
 } ql_stream_type_t;
 
 /* Full ACK state per packet-number space */
 typedef struct {
-    ql_pkt_num_t   largest_recvd;          /* 19.3 Largest Acknowledged field */
-    ql_pkt_num_t   largest_acked_sent;     /* last largest we put in an ACK frame */
-    uint64_t       ack_delay_us;           /* our local ACK delay to report */
+    ql_pkt_num_t largest_recvd;      /* 19.3 Largest Acknowledged field */
+    ql_pkt_num_t largest_acked_sent; /* last largest we put in an ACK frame */
+    uint64_t ack_delay_us;           /* our local ACK delay to report */
     ql_ack_range_t ranges[QL_ACK_RANGE_MAX];
-    int            range_count;
-    int            ack_eliciting_recvd;    /* count since last ACK sent */
-    bool           needs_ack;             /* true when we must send ACK soon */
-    uint64_t       ack_send_deadline_ms;  /* when we MUST send the ACK by */
+    int range_count;
+    int ack_eliciting_recvd;       /* count since last ACK sent */
+    bool needs_ack;                /* true when we must send ACK soon */
+    uint64_t ack_send_deadline_ms; /* when we MUST send the ACK by */
     /* 19.3.2 — ECN counts */
-    uint64_t       ecn_ect0;
-    uint64_t       ecn_ect1;
-    uint64_t       ecn_ce;
-    bool           ecn_enabled;
+    uint64_t ecn_ect0;
+    uint64_t ecn_ect1;
+    uint64_t ecn_ce;
+    bool ecn_enabled;
 } ql_ack_state_t;
 
 /* 3.1 — Sending stream states */
@@ -826,47 +836,47 @@ typedef struct {
  * @link: https://datatracker.ietf.org/doc/html/rfc9000#name-stream-states
  */
 typedef enum {
-    QL_TX_STREAM_READY      = 0,  /* created, data buffered, not yet sent */
-    QL_TX_STREAM_SEND       = 1,  /* STREAM frames being sent */
-    QL_TX_STREAM_DATA_SENT  = 2,  /* FIN sent, awaiting ACK */
-    QL_TX_STREAM_DATA_RCVD  = 3,  /* FIN ACKed — terminal */
-    QL_TX_STREAM_RESET_SENT = 4,  /* RESET_STREAM sent */
-    QL_TX_STREAM_RESET_RCVD = 5,  /* RESET_STREAM ACKed — terminal */
+    QL_TX_STREAM_READY      = 0, /* created, data buffered, not yet sent */
+    QL_TX_STREAM_SEND       = 1, /* STREAM frames being sent */
+    QL_TX_STREAM_DATA_SENT  = 2, /* FIN sent, awaiting ACK */
+    QL_TX_STREAM_DATA_RCVD  = 3, /* FIN ACKed — terminal */
+    QL_TX_STREAM_RESET_SENT = 4, /* RESET_STREAM sent */
+    QL_TX_STREAM_RESET_RCVD = 5, /* RESET_STREAM ACKed — terminal */
 } ql_tx_stream_state_t;
 
 /* 3.2 — Receiving stream states */
 typedef enum {
-    QL_RX_STREAM_RECV       = 0,  /* receiving data */
-    QL_RX_STREAM_SIZE_KNOWN = 1,  /* FIN received, final size known */
-    QL_RX_STREAM_DATA_RCVD  = 2,  /* all data received, not yet consumed */
-    QL_RX_STREAM_DATA_READ  = 3,  /* all data consumed by app — terminal */
-    QL_RX_STREAM_RESET_RCVD = 4,  /* RESET_STREAM received */
-    QL_RX_STREAM_RESET_READ = 5,  /* reset consumed by app — terminal */
+    QL_RX_STREAM_RECV       = 0, /* receiving data */
+    QL_RX_STREAM_SIZE_KNOWN = 1, /* FIN received, final size known */
+    QL_RX_STREAM_DATA_RCVD  = 2, /* all data received, not yet consumed */
+    QL_RX_STREAM_DATA_READ  = 3, /* all data consumed by app — terminal */
+    QL_RX_STREAM_RESET_RCVD = 4, /* RESET_STREAM received */
+    QL_RX_STREAM_RESET_READ = 5, /* reset consumed by app — terminal */
 } ql_rx_stream_state_t;
 
 /* Per-stream flow control 4.1 */
 typedef struct {
-    uint64_t  send_limit;        /* peer's advertised MAX_STREAM_DATA */
-    uint64_t  send_offset;       /* bytes we have sent so far */
-    uint64_t  recv_limit;        /* our MAX_STREAM_DATA advertised to peer */
-    uint64_t  recv_consumed;     /* bytes consumed (read) by the application */
-    uint64_t  recv_offset;       /* highest byte offset received */
-    uint64_t  final_size;        /* set when FIN or RESET_STREAM seen 4.5 */
-    bool      final_size_known;
+    uint64_t send_limit;    /* peer's advertised MAX_STREAM_DATA */
+    uint64_t send_offset;   /* bytes we have sent so far */
+    uint64_t recv_limit;    /* our MAX_STREAM_DATA advertised to peer */
+    uint64_t recv_consumed; /* bytes consumed (read) by the application */
+    uint64_t recv_offset;   /* highest byte offset received */
+    uint64_t final_size;    /* set when FIN or RESET_STREAM seen 4.5 */
+    bool final_size_known;
     /* Data-blocked signalling 19.13 */
-    bool      send_blocked;      /* we are blocked by send_limit */
-    uint64_t  blocked_at;        /* limit value we sent DATA_BLOCKED at */
+    bool send_blocked;   /* we are blocked by send_limit */
+    uint64_t blocked_at; /* limit value we sent DATA_BLOCKED at */
 } ql_stream_fc_t;
 
 /* Connection-level flow control 4.1 */
 typedef struct {
-    uint64_t  send_limit;        /* peer's MAX_DATA */
-    uint64_t  send_offset;       /* total bytes sent across all streams */
-    uint64_t  recv_limit;        /* our MAX_DATA advertised to peer */
-    uint64_t  recv_consumed;     /* total bytes consumed across all streams */
+    uint64_t send_limit;    /* peer's MAX_DATA */
+    uint64_t send_offset;   /* total bytes sent across all streams */
+    uint64_t recv_limit;    /* our MAX_DATA advertised to peer */
+    uint64_t recv_consumed; /* total bytes consumed across all streams */
     /* Data-blocked signalling 19.12 */
-    bool      send_blocked;
-    uint64_t  blocked_at;
+    bool send_blocked;
+    uint64_t blocked_at;
 } ql_conn_fc_t;
 
 /* =========================================================================
@@ -876,37 +886,37 @@ typedef struct {
  * ========================================================================= */
 
 typedef struct {
-    uint8_t   buf[QL_CRYPTO_BUF_SIZE];
-    uint64_t  rx_offset;     /* next expected byte from peer */
-    uint64_t  tx_offset;     /* next byte offset to send to peer */
-    bool      has_data;      /* non-empty */
+    uint8_t buf[QL_CRYPTO_BUF_SIZE];
+    uint64_t rx_offset; /* next expected byte from peer */
+    uint64_t tx_offset; /* next byte offset to send to peer */
+    bool has_data;      /* non-empty */
 } ql_crypto_buf_t;
 
 typedef struct ql_stream {
-    ql_stream_id_t        id;
-    ql_stream_type_t      type;
-    ql_tx_stream_state_t  tx_state;
-    ql_rx_stream_state_t  rx_state;
+    ql_stream_id_t id;
+    ql_stream_type_t type;
+    ql_tx_stream_state_t tx_state;
+    ql_rx_stream_state_t rx_state;
 
     /* Flow control */
-    ql_stream_fc_t  fc;
+    ql_stream_fc_t fc;
 
     /* Send-side ring buffer */
-    uint8_t   tx_buf[QL_STREAM_BUF_SIZE];
-    uint64_t  tx_head;         /* next write position (app → buffer) */
-    uint64_t  tx_tail;         /* next send position (buffer → wire) */
-    uint64_t  tx_acked_offset; /* highest ACKed send offset */
+    uint8_t tx_buf[QL_STREAM_BUF_SIZE];
+    uint64_t tx_head;         /* next write position (app → buffer) */
+    uint64_t tx_tail;         /* next send position (buffer → wire) */
+    uint64_t tx_acked_offset; /* highest ACKed send offset */
 
     /* Receive-side ring buffer */
-    uint8_t   rx_buf[QL_STREAM_BUF_SIZE];
-    uint64_t  rx_head;         /* next app-read position */
-    uint64_t  rx_tail;         /* next write by receive path */
+    uint8_t rx_buf[QL_STREAM_BUF_SIZE];
+    uint64_t rx_head; /* next app-read position */
+    uint64_t rx_tail; /* next write by receive path */
 
     /* Error codes */
-    ql_app_error_t  reset_error_code;  /* RESET_STREAM / STOP_SENDING code */
+    ql_app_error_t reset_error_code; /* RESET_STREAM / STOP_SENDING code */
 
     /* Priority hint for scheduling (2.3 — application-defined) */
-    uint32_t  priority;
+    uint32_t priority;
 
     /* Intrusive singly-linked list within ql_conn_t */
     struct ql_stream *next;
@@ -918,35 +928,33 @@ typedef struct ql_stream {
  *     and which AEAD keys are used to protect packets.
  * ========================================================================= */
 typedef enum {
-    QL_ENC_LEVEL_INITIAL    = 0,  /* AEAD_AES_128_GCM, fixed salt 5.2 RFC9001 */
-    QL_ENC_LEVEL_EARLY_DATA = 1,  /* 0-RTT keys (client-only write) */
-    QL_ENC_LEVEL_HANDSHAKE  = 2,  /* Handshake keys */
-    QL_ENC_LEVEL_APP        = 3,  /* 1-RTT keys */
+    QL_ENC_LEVEL_INITIAL    = 0, /* AEAD_AES_128_GCM, fixed salt 5.2 RFC9001 */
+    QL_ENC_LEVEL_EARLY_DATA = 1, /* 0-RTT keys (client-only write) */
+    QL_ENC_LEVEL_HANDSHAKE  = 2, /* Handshake keys */
+    QL_ENC_LEVEL_APP        = 3, /* 1-RTT keys */
     QL_ENC_LEVEL_COUNT      = 4,
 } ql_enc_level_t;
 
-typedef struct ql_conn ql_conn_t;  /* forward declaration */
+typedef struct ql_conn ql_conn_t; /* forward declaration */
 
 /*
  * Feed inbound CRYPTO-frame bytes into the TLS engine at the given level.
  * Returns 0 on success, <0 on fatal TLS error.
  */
-typedef int (*ql_tls_provide_data_fn)(void *tls_ctx, ql_enc_level_t level,
-                                       const uint8_t *data, size_t len);
+typedef int (*ql_tls_provide_data_fn)(void *tls_ctx, ql_enc_level_t level, const uint8_t *data,
+                                      size_t len);
 
 /*
  * Pull outbound CRYPTO bytes from the TLS engine for the given level.
  * Writes into buf (capacity cap).  Returns bytes written, 0 if none, <0 error.
  */
-typedef int (*ql_tls_get_data_fn)(void *tls_ctx, ql_enc_level_t level,
-                                   uint8_t *buf, size_t cap);
+typedef int (*ql_tls_get_data_fn)(void *tls_ctx, ql_enc_level_t level, uint8_t *buf, size_t cap);
 
 /*
  * Called when TLS signals new read/write keys are available at a level.
  * Implementation should derive AEAD + HP keys and fill *keys_out.
  */
-typedef int (*ql_tls_set_keys_fn)(void *tls_ctx, ql_enc_level_t level,
-                                   ql_key_pair_t *keys_out);
+typedef int (*ql_tls_set_keys_fn)(void *tls_ctx, ql_enc_level_t level, ql_key_pair_t *keys_out);
 
 /* Returns true once TLS handshake is complete (server has sent Finished). */
 typedef bool (*ql_tls_is_done_fn)(void *tls_ctx);
@@ -955,33 +963,31 @@ typedef bool (*ql_tls_is_done_fn)(void *tls_ctx);
 typedef const char *(*ql_tls_get_alpn_fn)(void *tls_ctx);
 
 /* Push our encoded QUIC transport parameters into the TLS extension 7.4. */
-typedef int (*ql_tls_set_tp_fn)(void *tls_ctx,
-                                 const uint8_t *tp_buf, size_t tp_len);
+typedef int (*ql_tls_set_tp_fn)(void *tls_ctx, const uint8_t *tp_buf, size_t tp_len);
 
 /* Pull the peer's encoded transport parameters from the TLS extension 7.4. */
-typedef int (*ql_tls_get_peer_tp_fn)(void *tls_ctx,
-                                      uint8_t *tp_buf, size_t cap);
+typedef int (*ql_tls_get_peer_tp_fn)(void *tls_ctx, uint8_t *tp_buf, size_t cap);
 
 /* All TLS callbacks plus the opaque context pointer */
 typedef struct {
-    void                   *tls_ctx;
-    ql_tls_provide_data_fn  provide_data;
-    ql_tls_get_data_fn      get_data;
-    ql_tls_set_keys_fn      set_keys;
-    ql_tls_is_done_fn       is_done;
-    ql_tls_get_alpn_fn      get_alpn;
-    ql_tls_set_tp_fn        set_tp;
-    ql_tls_get_peer_tp_fn   get_peer_tp;
+    void *tls_ctx;
+    ql_tls_provide_data_fn provide_data;
+    ql_tls_get_data_fn get_data;
+    ql_tls_set_keys_fn set_keys;
+    ql_tls_is_done_fn is_done;
+    ql_tls_get_alpn_fn get_alpn;
+    ql_tls_set_tp_fn set_tp;
+    ql_tls_get_peer_tp_fn get_peer_tp;
 } ql_tls_t;
 
 typedef enum {
     QL_CONN_IDLE      = 0,
-    QL_CONN_INITIAL   = 1,  /* Initial packets exchanged */
-    QL_CONN_HANDSHAKE = 2,  /* TLS Handshake in progress */
-    QL_CONN_CONNECTED = 3,  /* 1-RTT keys installed, handshake confirmed */
-    QL_CONN_CLOSING   = 4,  /* CONNECTION_CLOSE sent, entering drain 10.2.1 */
-    QL_CONN_DRAINING  = 5,  /* CONNECTION_CLOSE received 10.2.2 */
-    QL_CONN_CLOSED    = 6,  /* terminal */
+    QL_CONN_INITIAL   = 1, /* Initial packets exchanged */
+    QL_CONN_HANDSHAKE = 2, /* TLS Handshake in progress */
+    QL_CONN_CONNECTED = 3, /* 1-RTT keys installed, handshake confirmed */
+    QL_CONN_CLOSING   = 4, /* CONNECTION_CLOSE sent, entering drain 10.2.1 */
+    QL_CONN_DRAINING  = 5, /* CONNECTION_CLOSE received 10.2.2 */
+    QL_CONN_CLOSED    = 6, /* terminal */
 } ql_conn_state_t;
 
 typedef enum {
@@ -991,72 +997,72 @@ typedef enum {
 
 typedef enum {
     QL_TIMER_NONE           = 0,
-    QL_TIMER_IDLE           = 1,   /* 10.1 */
-    QL_TIMER_PTO            = 2,   /* RFC 9002 6.2 */
-    QL_TIMER_DRAIN          = 3,   /* 10.2.2 */
-    QL_TIMER_ACK_DELAY      = 4,   /* 13.2.1 */
-    QL_TIMER_PATH_CHALLENGE = 5,   /* 8.2.4 */
+    QL_TIMER_IDLE           = 1, /* 10.1 */
+    QL_TIMER_PTO            = 2, /* RFC 9002 6.2 */
+    QL_TIMER_DRAIN          = 3, /* 10.2.2 */
+    QL_TIMER_ACK_DELAY      = 4, /* 13.2.1 */
+    QL_TIMER_PATH_CHALLENGE = 5, /* 8.2.4 */
 } ql_timer_type_t;
 
 typedef struct {
-    ql_timer_type_t  type;
-    uint64_t         deadline_ms;   /* 0 = not armed */
-    bool             armed;
+    ql_timer_type_t type;
+    uint64_t deadline_ms; /* 0 = not armed */
+    bool armed;
 } ql_timer_t;
 
 typedef enum {
     QL_PATH_UNKNOWN   = 0,
-    QL_PATH_PROBING   = 1,   /* PATH_CHALLENGE sent, awaiting response */
-    QL_PATH_VALIDATED = 2,   /* PATH_RESPONSE received */
-    QL_PATH_FAILED    = 3,   /* validation timed out 8.2.4 */
+    QL_PATH_PROBING   = 1, /* PATH_CHALLENGE sent, awaiting response */
+    QL_PATH_VALIDATED = 2, /* PATH_RESPONSE received */
+    QL_PATH_FAILED    = 3, /* validation timed out 8.2.4 */
 } ql_path_state_t;
 
 typedef struct {
-    struct sockaddr_storage  local_addr;
-    socklen_t                local_addrlen;
-    struct sockaddr_storage  peer_addr;
-    socklen_t                peer_addrlen;
-    ql_path_state_t          state;
-    ql_path_data_t           challenge_data;       /* random 8 bytes we sent */
-    uint64_t                 challenge_sent_at_ms;
-    uint64_t                 mtu;                  /* current path MTU */
-    ql_timer_t               challenge_timer;
+    struct sockaddr_storage local_addr;
+    socklen_t local_addrlen;
+    struct sockaddr_storage peer_addr;
+    socklen_t peer_addrlen;
+    ql_path_state_t state;
+    ql_path_data_t challenge_data; /* random 8 bytes we sent */
+    uint64_t challenge_sent_at_ms;
+    uint64_t mtu; /* current path MTU */
+    ql_timer_t challenge_timer;
 } ql_path_t;
 
-typedef void (*ql_on_connected_fn)  (ql_conn_t *conn, void *user);
+typedef void (*ql_on_connected_fn)(ql_conn_t *conn, void *user);
 typedef void (*ql_on_stream_open_fn)(ql_conn_t *conn, ql_stream_t *stream, void *user);
-typedef void (*ql_on_data_fn)       (ql_conn_t *conn, ql_stream_t *stream, void *user);
-typedef void (*ql_on_close_fn)      (ql_conn_t *conn, ql_transport_error_t err, void *user);
-typedef void (*ql_on_migrate_fn)    (ql_conn_t *conn, const ql_path_t *new_path, void *user);
+typedef void (*ql_on_data_fn)(ql_conn_t *conn, ql_stream_t *stream, void *user);
+typedef void (*ql_on_close_fn)(ql_conn_t *conn, ql_transport_error_t err, void *user);
+typedef void (*ql_on_migrate_fn)(ql_conn_t *conn, const ql_path_t *new_path, void *user);
 
 typedef struct {
-    ql_transport_params_t  local_params;       /* what we advertise to peer */
-    ql_tls_t               tls;                /* TLS callback bundle */
+    ql_transport_params_t local_params; /* what we advertise to peer */
+    ql_tls_t tls;                       /* TLS callback bundle */
 
     /* Event callbacks */
-    ql_on_connected_fn    on_connected;
-    ql_on_stream_open_fn  on_stream_open;
-    ql_on_data_fn         on_data;
-    ql_on_close_fn        on_close;
-    ql_on_migrate_fn      on_migrate;
-    void                 *user;
+    ql_on_connected_fn on_connected;
+    ql_on_stream_open_fn on_stream_open;
+    ql_on_data_fn on_data;
+    ql_on_close_fn on_close;
+    ql_on_migrate_fn on_migrate;
+    void *user;
 
     /* Tuning */
-    uint64_t  idle_timeout_ms;               /* 0 = use peer's value */
-    bool      enable_spin_bit;               /* 17.4 */
-    bool      enable_migration;              /* 9 */
-    bool      require_address_validation;    /* server: require Retry 8.1 */
-    bool      enable_0rtt;                   /* allow 0-RTT data */
+    uint64_t idle_timeout_ms;        /* 0 = use peer's value */
+    bool enable_spin_bit;            /* 17.4 */
+    bool enable_migration;           /* 9 */
+    bool require_address_validation; /* server: require Retry 8.1 */
+    bool enable_0rtt;                /* allow 0-RTT data */
 } ql_config_t;
 
 /* One row: either a local CID we issued, or a remote CID we received */
 typedef struct {
-    ql_cid_t          cid;
-    uint64_t          sequence_num;       /* 19.15 */
-    uint64_t          retire_prior_to;    /* 19.15 */
-    ql_reset_token_t  reset_token;
-    bool              is_active;
-    bool              is_retired;
+    ql_cid_t cid;
+    uint64_t sequence_num;    /* 19.15 */
+    uint64_t retire_prior_to; /* 19.15 */
+    ql_reset_token_t reset_token;
+    bool is_active;
+    bool is_retired;
 } ql_cid_entry_t;
 
 /* =========================================================================
@@ -1070,46 +1076,46 @@ typedef struct {
  * up to the path MTU.
  */
 typedef struct {
-    uint8_t   data[QL_PATH_MTU_ETHERNET + 64]; /* generous upper bound */
-    size_t    len;
-    struct sockaddr_storage  dest;
-    socklen_t                dest_len;
+    uint8_t data[QL_PATH_MTU_ETHERNET + 64]; /* generous upper bound */
+    size_t len;
+    struct sockaddr_storage dest;
+    socklen_t dest_len;
 } ql_datagram_t;
 
 /* Ring of outbound datagrams waiting for the UDP socket */
 typedef struct {
-    ql_datagram_t  datagrams[QL_MAX_COALESCE_PKTS];
-    int            head;
-    int            tail;
-    int            count;
+    ql_datagram_t datagrams[QL_MAX_COALESCE_PKTS];
+    int head;
+    int tail;
+    int count;
 } ql_send_queue_t;
 
 /* Bitmask of retransmittable frame types for ql_sent_pkt_t.frame_flags */
-#define QL_RETX_FLAG_CRYPTO          (1u << 0)
-#define QL_RETX_FLAG_STREAM          (1u << 1)
-#define QL_RETX_FLAG_RESET_STREAM    (1u << 2)
-#define QL_RETX_FLAG_STOP_SENDING    (1u << 3)
-#define QL_RETX_FLAG_MAX_DATA        (1u << 4)
+#define QL_RETX_FLAG_CRYPTO (1u << 0)
+#define QL_RETX_FLAG_STREAM (1u << 1)
+#define QL_RETX_FLAG_RESET_STREAM (1u << 2)
+#define QL_RETX_FLAG_STOP_SENDING (1u << 3)
+#define QL_RETX_FLAG_MAX_DATA (1u << 4)
 #define QL_RETX_FLAG_MAX_STREAM_DATA (1u << 5)
-#define QL_RETX_FLAG_MAX_STREAMS     (1u << 6)
-#define QL_RETX_FLAG_NEW_CID         (1u << 7)
-#define QL_RETX_FLAG_RETIRE_CID      (1u << 8)
-#define QL_RETX_FLAG_PATH_CHALLENGE  (1u << 9)
-#define QL_RETX_FLAG_HANDSHAKE_DONE  (1u << 10)
-#define QL_RETX_FLAG_NEW_TOKEN       (1u << 11)
-#define QL_RETX_FLAG_PING            (1u << 12)
-#define QL_RETX_FLAG_DATA_BLOCKED    (1u << 13)
+#define QL_RETX_FLAG_MAX_STREAMS (1u << 6)
+#define QL_RETX_FLAG_NEW_CID (1u << 7)
+#define QL_RETX_FLAG_RETIRE_CID (1u << 8)
+#define QL_RETX_FLAG_PATH_CHALLENGE (1u << 9)
+#define QL_RETX_FLAG_HANDSHAKE_DONE (1u << 10)
+#define QL_RETX_FLAG_NEW_TOKEN (1u << 11)
+#define QL_RETX_FLAG_PING (1u << 12)
+#define QL_RETX_FLAG_DATA_BLOCKED (1u << 13)
 
 typedef struct {
-    ql_pkt_num_t   pkt_num;
-    ql_pn_space_t  pn_space;
-    uint64_t       sent_at_ms;        /* wall-clock send time */
-    size_t         in_flight_bytes;   /* bytes counted toward congestion window */
-    bool           ack_eliciting;     /* false → no ACK needed 13.2 */
-    bool           in_flight;         /* counted in cc.bytes_in_flight */
-    bool           is_lost;
-    bool           is_acked;
-    uint32_t       frame_flags;       /* QL_RETX_FLAG_* bitmask */
+    ql_pkt_num_t pkt_num;
+    ql_pn_space_t pn_space;
+    uint64_t sent_at_ms;    /* wall-clock send time */
+    size_t in_flight_bytes; /* bytes counted toward congestion window */
+    bool ack_eliciting;     /* false → no ACK needed 13.2 */
+    bool in_flight;         /* counted in cc.bytes_in_flight */
+    bool is_lost;
+    bool is_acked;
+    uint32_t frame_flags; /* QL_RETX_FLAG_* bitmask */
 } ql_sent_pkt_t;
 
 /**
@@ -1117,144 +1123,144 @@ typedef struct {
  * NewReno by default; CUBIC can replace it.
  */
 typedef enum {
-    QL_CC_SLOW_START      = 0,
-    QL_CC_CONGESTION_AVD  = 1,
-    QL_CC_RECOVERY        = 2,
+    QL_CC_SLOW_START     = 0,
+    QL_CC_CONGESTION_AVD = 1,
+    QL_CC_RECOVERY       = 2,
 } ql_cc_state_t;
 
 typedef struct {
-    ql_cc_state_t  state;
-    uint64_t       cwnd;               /* congestion window, bytes */
-    uint64_t       ssthresh;           /* slow-start threshold, bytes */
-    uint64_t       bytes_in_flight;    /* unacked in-flight bytes */
-    uint64_t       recovery_start_pn;  /* pkt-num when recovery began */
+    ql_cc_state_t state;
+    uint64_t cwnd;              /* congestion window, bytes */
+    uint64_t ssthresh;          /* slow-start threshold, bytes */
+    uint64_t bytes_in_flight;   /* unacked in-flight bytes */
+    uint64_t recovery_start_pn; /* pkt-num when recovery began */
 
     /* RTT estimates RFC 9002 5 */
-    uint64_t       latest_rtt_us;
-    uint64_t       smoothed_rtt_us;    /* SRTT */
-    uint64_t       rtt_var_us;         /* RTTVAR */
-    uint64_t       min_rtt_us;
-    uint64_t       first_rtt_sample_at_ms;
-    bool           rtt_sample_taken;
+    uint64_t latest_rtt_us;
+    uint64_t smoothed_rtt_us; /* SRTT */
+    uint64_t rtt_var_us;      /* RTTVAR */
+    uint64_t min_rtt_us;
+    uint64_t first_rtt_sample_at_ms;
+    bool rtt_sample_taken;
 
     /* PTO (Probe Timeout) timer RFC 9002 6.2 */
-    uint64_t       pto_deadline_ms;    /* 0 = not armed */
-    int            pto_count;
+    uint64_t pto_deadline_ms; /* 0 = not armed */
+    int pto_count;
 
     /* Loss detection RFC 9002 6.1 */
-    uint64_t       loss_time[QL_PN_SPACE_COUNT]; /* earliest loss-time per space */
-    uint64_t       time_of_last_sent_ack_eliciting_pkt[QL_PN_SPACE_COUNT];
+    uint64_t loss_time[QL_PN_SPACE_COUNT]; /* earliest loss-time per space */
+    uint64_t time_of_last_sent_ack_eliciting_pkt[QL_PN_SPACE_COUNT];
 
     /* ECN counters RFC 9002 9.3 */
-    uint64_t       peer_ecn_ce_count;  /* last CE count seen in peer's ACK */
+    uint64_t peer_ecn_ce_count; /* last CE count seen in peer's ACK */
 } ql_cc_t;
 
 struct ql_conn {
-    ql_conn_state_t  state;
-    ql_role_t        role;
-    ql_config_t      cfg;
+    ql_conn_state_t state;
+    ql_role_t role;
+    ql_config_t cfg;
 
     /* ---- Connection IDs 5.1 ---- */
-    ql_cid_entry_t  local_cids[QL_MAX_CIDS];
-    int             local_cid_count;
-    ql_cid_entry_t  remote_cids[QL_MAX_CIDS];
-    int             remote_cid_count;
-    uint64_t        next_cid_seq;            /* next sequence number to issue */
-    uint64_t        next_retire_prior_to;    /* 19.15 */
+    ql_cid_entry_t local_cids[QL_MAX_CIDS];
+    int local_cid_count;
+    ql_cid_entry_t remote_cids[QL_MAX_CIDS];
+    int remote_cid_count;
+    uint64_t next_cid_seq;         /* next sequence number to issue */
+    uint64_t next_retire_prior_to; /* 19.15 */
 
     /* Active CIDs for current exchange */
-    ql_cid_t  local_cid;    /* we tell peer to address us with this */
-    ql_cid_t  remote_cid;   /* we address peer with this */
+    ql_cid_t local_cid;  /* we tell peer to address us with this */
+    ql_cid_t remote_cid; /* we address peer with this */
 
     /* ---- Transport parameters ---- */
-    ql_transport_params_t  local_tp;
-    ql_transport_params_t  remote_tp;
-    bool                   remote_tp_rcvd;
+    ql_transport_params_t local_tp;
+    ql_transport_params_t remote_tp;
+    bool remote_tp_rcvd;
 
     /* ---- Packet number spaces 12.3 ---- */
-    ql_pkt_num_t   next_pn[QL_PN_SPACE_COUNT];        /* next to send */
-    ql_pkt_num_t   largest_recvd[QL_PN_SPACE_COUNT];  /* from peer */
+    ql_pkt_num_t next_pn[QL_PN_SPACE_COUNT];       /* next to send */
+    ql_pkt_num_t largest_recvd[QL_PN_SPACE_COUNT]; /* from peer */
     ql_ack_state_t ack[QL_PN_SPACE_COUNT];
 
     /* ---- Crypto / TLS keys ---- */
-    ql_key_pair_t   keys[QL_ENC_LEVEL_COUNT];
-    ql_key_update_t key_update;                    /* RFC 9001 6 */
+    ql_key_pair_t keys[QL_ENC_LEVEL_COUNT];
+    ql_key_update_t key_update; /* RFC 9001 6 */
 
     /* ---- TLS engine ---- */
-    ql_tls_t  tls;
-    bool      handshake_complete;    /* TLS done, 1-RTT keys installed */
-    bool      handshake_confirmed;   /* server: HANDSHAKE_DONE sent 4.1.2 RFC9001 */
+    ql_tls_t tls;
+    bool handshake_complete;  /* TLS done, 1-RTT keys installed */
+    bool handshake_confirmed; /* server: HANDSHAKE_DONE sent 4.1.2 RFC9001 */
 
     /* ---- CRYPTO frame reassembly buffers 7.5 ---- */
-    ql_crypto_buf_t  crypto[QL_ENC_LEVEL_COUNT];
+    ql_crypto_buf_t crypto[QL_ENC_LEVEL_COUNT];
 
     /* ---- Address / Retry token 8.1 ---- */
-    ql_token_t  token;   /* outgoing: token from server's Retry / NEW_TOKEN */
+    ql_token_t token; /* outgoing: token from server's Retry / NEW_TOKEN */
 
     /* ---- Address validation 8 / 21.3 ---- */
-    ql_addr_valid_t  addr_valid;
+    ql_addr_valid_t addr_valid;
 
     /* ---- Paths 9 ---- */
-    ql_path_t  active_path;
-    ql_path_t  probing_path;
-    bool       migration_in_progress;
+    ql_path_t active_path;
+    ql_path_t probing_path;
+    bool migration_in_progress;
 
     /* ---- Network socket ---- */
-    int   fd;                      /* non-blocking UDP socket */
+    int fd; /* non-blocking UDP socket */
 
     /* ---- Streams 2 ---- */
-    ql_stream_t  *stream_list;               /* singly-linked list of all open streams */
-    uint64_t      next_stream_id[4];         /* per QL_STREAM_TYPE_* */
-    uint64_t      max_streams_bidi;          /* from peer's transport params */
-    uint64_t      max_streams_uni;
-    uint64_t      open_streams_bidi;
-    uint64_t      open_streams_uni;
+    ql_stream_t *stream_list;   /* singly-linked list of all open streams */
+    uint64_t next_stream_id[4]; /* per QL_STREAM_TYPE_* */
+    uint64_t max_streams_bidi;  /* from peer's transport params */
+    uint64_t max_streams_uni;
+    uint64_t open_streams_bidi;
+    uint64_t open_streams_uni;
 
     /* ---- Connection-level flow control 4 ---- */
-    ql_conn_fc_t  fc;
+    ql_conn_fc_t fc;
 
     /* ---- Congestion control / loss detection RFC 9002 ---- */
-    ql_cc_t       cc;
+    ql_cc_t cc;
     ql_sent_pkt_t sent_pkts[QL_SENT_PKT_MAX];
-    int           sent_pkt_count;
+    int sent_pkt_count;
     /* Pointer to oldest unacked entry; wraps modulo QL_SENT_PKT_MAX */
-    int           sent_pkt_head;
-    int           sent_pkt_tail;
+    int sent_pkt_head;
+    int sent_pkt_tail;
 
     /* ---- Timers ---- */
-    ql_timer_t  timer_idle;           /* 10.1 */
-    ql_timer_t  timer_drain;          /* 10.2.2 */
-    ql_timer_t  timer_ack[QL_PN_SPACE_COUNT]; /* 13.2.1 — per space */
+    ql_timer_t timer_idle;                   /* 10.1 */
+    ql_timer_t timer_drain;                  /* 10.2.2 */
+    ql_timer_t timer_ack[QL_PN_SPACE_COUNT]; /* 13.2.1 — per space */
 
     /* ---- Close state 10.2 ---- */
-    bool                  closing;
-    ql_transport_error_t  close_error;
-    ql_app_error_t        close_app_error;
-    ql_frame_type_t       close_frame_type;
-    uint8_t               close_reason[256];
-    size_t                close_reason_len;
+    bool closing;
+    ql_transport_error_t close_error;
+    ql_app_error_t close_app_error;
+    ql_frame_type_t close_frame_type;
+    uint8_t close_reason[256];
+    size_t close_reason_len;
     /* Buffer the last CONNECTION_CLOSE we sent, to echo it 10.2.1 */
-    uint8_t               close_pkt[QL_PATH_MTU_DEFAULT];
-    size_t                close_pkt_len;
+    uint8_t close_pkt[QL_PATH_MTU_DEFAULT];
+    size_t close_pkt_len;
 
     /* ---- Stateless reset 10.3 ---- */
-    ql_reset_token_t  local_reset_token;
+    ql_reset_token_t local_reset_token;
 
     /* ---- Spin bit 17.4 ---- */
-    bool  spin_bit;
+    bool spin_bit;
 
     /* ---- Outbound datagram queue ---- */
-    ql_send_queue_t  send_queue;
+    ql_send_queue_t send_queue;
 
     /* ---- Stats / diagnostics ---- */
-    uint64_t  bytes_sent_total;
-    uint64_t  bytes_received_total;
-    uint64_t  pkts_sent;
-    uint64_t  pkts_received;
-    uint64_t  pkts_lost;
+    uint64_t bytes_sent_total;
+    uint64_t bytes_received_total;
+    uint64_t pkts_sent;
+    uint64_t pkts_received;
+    uint64_t pkts_lost;
 
     /* ---- Opaque user pointer ---- */
-    void  *user;
+    void *user;
 };
 
 /* One outgoing-handshake-data buffer per encryption level. OpenSSL's
@@ -1263,14 +1269,14 @@ struct ql_conn {
  * can be several KB). */
 typedef struct {
     uint8_t *buf;
-    size_t   len;
-    size_t   cap;
-    size_t   read_off;   /* how much ql_tls_get_data has already drained */
+    size_t len;
+    size_t cap;
+    size_t read_off; /* how much ql_tls_get_data has already drained */
 } ql_tls_outbuf_t;
 
 typedef struct {
-    SSL       *ssl;
-    ql_role_t  role;
+    SSL *ssl;
+    ql_role_t role;
 
     ql_tls_outbuf_t out[QL_ENC_LEVEL_COUNT];
 
@@ -1280,19 +1286,19 @@ typedef struct {
      * Handshake and Application levels, so a shared buffer would clobber
      * one direction with the other. */
     struct {
-        uint8_t  read_secret[QL_SECRET_MAX_LEN];
-        size_t   read_secret_len;
-        uint8_t  write_secret[QL_SECRET_MAX_LEN];
-        size_t   write_secret_len;
-        uint32_t cipher_id;     /* SSL_CIPHER id, tells us AEAD + hash */
-        bool     read_pending;
-        bool     write_pending;
+        uint8_t read_secret[QL_SECRET_MAX_LEN];
+        size_t read_secret_len;
+        uint8_t write_secret[QL_SECRET_MAX_LEN];
+        size_t write_secret_len;
+        uint32_t cipher_id; /* SSL_CIPHER id, tells us AEAD + hash */
+        bool read_pending;
+        bool write_pending;
     } pending[QL_ENC_LEVEL_COUNT];
 
     /* Encoded transport parameters we're asked to send, buffered until
      * OpenSSL pulls them during the handshake. */
-    uint8_t  local_tp[1024];
-    size_t   local_tp_len;
+    uint8_t local_tp[1024];
+    size_t local_tp_len;
 
     ql_key_pair_t initial_keys; /* derived at init time from client DCID (RFC 9001 5.2) */
 } ql_tls_backend_t;
@@ -1305,31 +1311,37 @@ typedef struct {
  * ------------------------------------------------------------------------- */
 static ql_enc_level_t map_from_ossl(OSSL_ENCRYPTION_LEVEL level) {
     switch (level) {
-        case ssl_encryption_initial:      return QL_ENC_LEVEL_INITIAL;
-        case ssl_encryption_early_data:   return QL_ENC_LEVEL_EARLY_DATA;
-        case ssl_encryption_handshake:    return QL_ENC_LEVEL_HANDSHAKE;
-        case ssl_encryption_application:  return QL_ENC_LEVEL_APP;
-        default:                          return QL_ENC_LEVEL_APP;
+        case ssl_encryption_initial:
+            return QL_ENC_LEVEL_INITIAL;
+        case ssl_encryption_early_data:
+            return QL_ENC_LEVEL_EARLY_DATA;
+        case ssl_encryption_handshake:
+            return QL_ENC_LEVEL_HANDSHAKE;
+        default:
+            return QL_ENC_LEVEL_APP;
     }
 }
 
 static OSSL_ENCRYPTION_LEVEL map_to_ossl(ql_enc_level_t level) {
     switch (level) {
-        case QL_ENC_LEVEL_INITIAL:    return ssl_encryption_initial;
-        case QL_ENC_LEVEL_EARLY_DATA: return ssl_encryption_early_data;
-        case QL_ENC_LEVEL_HANDSHAKE:  return ssl_encryption_handshake;
-        default:                      return ssl_encryption_application;
+        case QL_ENC_LEVEL_INITIAL:
+            return ssl_encryption_initial;
+        case QL_ENC_LEVEL_EARLY_DATA:
+            return ssl_encryption_early_data;
+        case QL_ENC_LEVEL_HANDSHAKE:
+            return ssl_encryption_handshake;
+        default:
+            return ssl_encryption_application;
     }
 }
 
 /* forward decls: these are defined near the bottom of the file (~line 2663),
  * but QL_QUIC_METHOD's initializer needs them declared first. */
 static int cb_set_encryption_secrets(SSL *ssl, OSSL_ENCRYPTION_LEVEL level,
-                                      const uint8_t *read_secret,
-                                      const uint8_t *write_secret,
-                                      size_t secret_len);
-static int cb_add_handshake_data(SSL *ssl, OSSL_ENCRYPTION_LEVEL level,
-                                  const uint8_t *data, size_t len);
+                                     const uint8_t *read_secret, const uint8_t *write_secret,
+                                     size_t secret_len);
+static int cb_add_handshake_data(SSL *ssl, OSSL_ENCRYPTION_LEVEL level, const uint8_t *data,
+                                 size_t len);
 static int cb_flush_flight(SSL *ssl);
 static int cb_send_alert(SSL *ssl, OSSL_ENCRYPTION_LEVEL level, uint8_t alert);
 
@@ -1343,21 +1355,25 @@ static const SSL_QUIC_METHOD QL_QUIC_METHOD = {
 /**
  * PUBLIC API
  */
-int  ql_varint_encoded_len(ql_varint_t val){
-    if (val <= 63)
+int ql_varint_encoded_len(ql_varint_t val) {
+    if (val <= 63) {
         return 1;
+    }
 
-    if (val <= 16383)
+    if (val <= 16383) {
         return 2;
+    }
 
-    if (val <= 1073741823ULL)
+    if (val <= 1073741823ULL) {
         return 4;
+    }
 
-    if (val <= 4611686018427387903ULL)
+    if (val <= 4611686018427387903ULL) {
         return 8;
+    }
 
     return -1; /* invalid QUIC varint */
-}       /* returns 1/2/4/8 */
+} /* returns 1/2/4/8 */
 /*
     we use the first two MSB to represent the length of the integer
     2MSB	Length	Usable Bits	Range
@@ -1366,47 +1382,54 @@ int  ql_varint_encoded_len(ql_varint_t val){
     10	       4	 30	    0-1073741823
     11	       8	 62	    0-4611686018427387903
 */
-int  ql_varint_encode(uint8_t *buf, size_t cap, ql_varint_t val){
+int ql_varint_encode(uint8_t *buf, size_t cap, ql_varint_t val) {
     int len = ql_varint_encoded_len(val);
 
-    if (cap < (size_t)len) return -1;
+    if (cap < (size_t)len) {
+        return -1;
+    }
     switch (len) {
-    case 1:
-        buf[0] = (uint8_t)val;
-        break;
+        case 1:
+            buf[0] = (uint8_t)val;
+            break;
 
-    case 2:
-        buf[0] = 0x40 | ((val >> 8) & 0x3F);
-        buf[1] = (uint8_t)(val & 0xFF);
-        break;
+        case 2:
+            buf[0] = 0x40 | ((val >> 8) & 0x3F);
+            buf[1] = (uint8_t)(val & 0xFF);
+            break;
 
-    case 4:
-        buf[0] = 0x80 | ((val >> 24) & 0x3F);
-        for (int i = 1; i < 4; i++) {
-            buf[i] = (uint8_t)((val >> (24 - 8 * i)) & 0xFF);
-        }
-        break;
+        case 4:
+            buf[0] = 0x80 | ((val >> 24) & 0x3F);
+            for (int i = 1; i < 4; i++) {
+                buf[i] = (uint8_t)((val >> (24 - 8 * i)) & 0xFF);
+            }
+            break;
 
-    case 8:
-        buf[0] = 0xC0 | ((val >> 56) & 0x3F);
-        for (int i = 1; i < 8; i++) {
-            buf[i] = (uint8_t)((val >> (56 - 8 * i)) & 0xFF);
-        }
-        break;
+        case 8:
+            buf[0] = 0xC0 | ((val >> 56) & 0x3F);
+            for (int i = 1; i < 8; i++) {
+                buf[i] = (uint8_t)((val >> (56 - 8 * i)) & 0xFF);
+            }
+            break;
+        default:
+            return -1;
+            break;
     }
 
     return len;
 }
-int  ql_varint_decode(const uint8_t *buf, size_t len, ql_varint_t *out){
-    if (!buf || !out || len == 0)
+int ql_varint_decode(const uint8_t *buf, size_t len, ql_varint_t *out) {
+    if (!buf || !out || len == 0) {
         return -1;
+    }
 
-    uint8_t first = buf[0];
+    uint8_t first  = buf[0];
     uint8_t prefix = first >> 6;
-    size_t vlen = 1u << prefix;
+    size_t vlen    = 1u << prefix;
 
-    if (len < vlen)
+    if (len < vlen) {
         return -1;
+    }
 
     ql_varint_t v = first & 0x3F;
 
@@ -1422,50 +1445,59 @@ int  ql_varint_decode(const uint8_t *buf, size_t len, ql_varint_t *out){
  * Helpers
  */
 /* Helper: write a varint-valued TP field */
-static int tp_write_varint(uint8_t *buf, size_t *pos, size_t cap,
-                             ql_tp_id_t id, uint64_t val)
-{
-    int id_n  = ql_varint_encode(buf + *pos, cap - *pos, (uint64_t)id);
-    if (id_n < 0) return id_n;
+static int tp_write_varint(uint8_t *buf, size_t *pos, size_t cap, ql_tp_id_t id, uint64_t val) {
+    int id_n = ql_varint_encode(buf + *pos, cap - *pos, (uint64_t)id);
+    if (id_n < 0) {
+        return id_n;
+    }
     *pos += (size_t)id_n;
 
     /* Compute value encoding to know length */
     uint8_t tmp[8];
     int val_n = ql_varint_encode(tmp, sizeof(tmp), val);
-    if (val_n < 0) return val_n;
+    if (val_n < 0) {
+        return val_n;
+    }
 
     int len_n = ql_varint_encode(buf + *pos, cap - *pos, (uint64_t)val_n);
-    if (len_n < 0) return len_n;
+    if (len_n < 0) {
+        return len_n;
+    }
     *pos += (size_t)len_n;
 
-    if (*pos + (size_t)val_n > cap) return QLITE_ERR_BUF;
+    if (*pos + (size_t)val_n > cap) {
+        return QLITE_ERR_BUF;
+    }
     memcpy(buf + *pos, tmp, (size_t)val_n);
     *pos += (size_t)val_n;
     return 0;
 }
 
 /* Helper: write a raw-bytes TP field */
-static int tp_write_bytes(uint8_t *buf, size_t *pos, size_t cap,
-                            ql_tp_id_t id, const uint8_t *data, size_t data_len)
-{
+static int tp_write_bytes(uint8_t *buf, size_t *pos, size_t cap, ql_tp_id_t id, const uint8_t *data,
+                          size_t data_len) {
     int id_n = ql_varint_encode(buf + *pos, cap - *pos, (uint64_t)id);
-    if (id_n < 0) return id_n;
+    if (id_n < 0) {
+        return id_n;
+    }
     *pos += (size_t)id_n;
 
     int len_n = ql_varint_encode(buf + *pos, cap - *pos, (uint64_t)data_len);
-    if (len_n < 0) return len_n;
+    if (len_n < 0) {
+        return len_n;
+    }
     *pos += (size_t)len_n;
 
-    if (*pos + data_len > cap) return QLITE_ERR_BUF;
+    if (*pos + data_len > cap) {
+        return QLITE_ERR_BUF;
+    }
     memcpy(buf + *pos, data, data_len);
     *pos += data_len;
     return 0;
 }
 
 /* Helper: write a CID-valued TP */
-static int tp_write_cid(uint8_t *buf, size_t *pos, size_t cap,
-                          ql_tp_id_t id, const ql_cid_t *cid)
-{
+static int tp_write_cid(uint8_t *buf, size_t *pos, size_t cap, ql_tp_id_t id, const ql_cid_t *cid) {
     return tp_write_bytes(buf, pos, cap, id, cid->data, cid->len);
 }
 
@@ -1489,34 +1521,48 @@ static void ql__write_be(uint8_t *buf, uint64_t val, int n) {
 
 /* Bounds-checked varint read from buf[pos..len], advance pos. */
 static int ql__read_varint(const uint8_t *buf, size_t *pos, size_t len, ql_varint_t *out) {
-    if (*pos >= len) return QLITE_ERR_BUF;
+    if (*pos >= len) {
+        return QLITE_ERR_BUF;
+    }
     int n = ql_varint_decode(buf + *pos, len - *pos, out);
-    if (n < 0) return n;
+    if (n < 0) {
+        return n;
+    }
     *pos += (size_t)n;
     return n;
 }
 
-int  ql_pkt_num_encode(uint8_t *buf, ql_pkt_num_t full_pn,ql_pkt_num_t largest_acked){
+int ql_pkt_num_encode(uint8_t *buf, ql_pkt_num_t full_pn, ql_pkt_num_t largest_acked) {
     uint64_t n_unacked;
     int pn_len;
 
-    if(full_pn <= largest_acked) n_unacked = 1;
-    else n_unacked = full_pn - largest_acked;
+    if (full_pn <= largest_acked) {
+        n_unacked = 1;
+    } else {
+        n_unacked = full_pn - largest_acked;
+    }
 
-    if (n_unacked < (1ULL << 7)) pn_len = 1;
-    else if (n_unacked < (1ULL << 15)) pn_len = 2;
-    else if (n_unacked < (1ULL << 23)) pn_len = 3;
-    // else pn_len = 4;
-    else if (n_unacked < (1ULL << 31)) pn_len = 4;
-    else return QLITE_ERR_INTERNAL;
+    if (n_unacked < (1ULL << 7)) {
+        pn_len = 1;
+    } else if (n_unacked < (1ULL << 15)) {
+        pn_len = 2;
+    } else if (n_unacked < (1ULL << 23)) {
+        pn_len = 3;
+        // else pn_len = 4;
+    } else if (n_unacked < (1ULL << 31)) {
+        pn_len = 4;
+    } else {
+        return QLITE_ERR_INTERNAL;
+    }
 
-    for(int i = 0; i< pn_len; i++)
-        buf[pn_len - 1 -i] = (uint8_t)(full_pn >> (i*8));
+    for (int i = 0; i < pn_len; i++) {
+        buf[pn_len - 1 - i] = (uint8_t)(full_pn >> (i * 8));
+    }
 
     return pn_len;
 }
 
-ql_pkt_num_t ql_pkt_num_decode(uint64_t truncated_pn, int pn_nbits,ql_pkt_num_t largest_pn){
+ql_pkt_num_t ql_pkt_num_decode(uint64_t truncated_pn, int pn_nbits, ql_pkt_num_t largest_pn) {
     /* Next packet number we expect. */
     ql_pkt_num_t expected_pn = largest_pn + 1;
 
@@ -1526,46 +1572,45 @@ ql_pkt_num_t ql_pkt_num_decode(uint64_t truncated_pn, int pn_nbits,ql_pkt_num_t 
     ql_pkt_num_t pn_mask = pn_win - 1;
 
     /* Reconstruct using expected packet number's upper bits. */
-    ql_pkt_num_t candidate_pn =
-        (expected_pn & ~pn_mask) | truncated_pn;
+    ql_pkt_num_t candidate_pn = (expected_pn & ~pn_mask) | truncated_pn;
 
     /* Candidate is too far behind. */
-    if (candidate_pn + pn_hwin <= expected_pn &&
-        candidate_pn < ((1ULL << 62) - pn_win))
-    {
+    if (candidate_pn + pn_hwin <= expected_pn && candidate_pn < ((1ULL << 62) - pn_win)) {
         candidate_pn += pn_win;
     }
     /* Candidate is too far ahead. */
-    else if (candidate_pn > expected_pn + pn_hwin &&
-             candidate_pn >= pn_win)
-    {
+    else if (candidate_pn > expected_pn + pn_hwin && candidate_pn >= pn_win) {
         candidate_pn -= pn_win;
     }
 
-    if(candidate_pn > QL_VARINT_MAX) candidate_pn -= pn_win;
+    if (candidate_pn > QL_VARINT_MAX) {
+        candidate_pn -= pn_win;
+    }
 
     return candidate_pn;
 }
 
-int  ql_frame_encode(const ql_frame_t *frame, uint8_t *buf, size_t cap){
+int ql_frame_encode(const ql_frame_t *frame, uint8_t *buf, size_t cap) {
     size_t pos = 0; // this is the cursor in buffer
 
-    switch(frame->type){
-        case QL_FRAME_PADDING:{
+    switch (frame->type) {
+        case QL_FRAME_PADDING: {
             size_t pad = frame->u.padding.length;
-            if(pos + pad > cap) return QLITE_ERR_BUF;
+            if (pos + pad > cap) {
+                return QLITE_ERR_BUF;
+            }
             memset(buf + pos, 0x00, pad);
             pos += pad;
             return (int)pos;
         }
-        case QL_FRAME_PING:{
+        case QL_FRAME_PING: {
             WV(0x01);
             return (int)pos;
         }
         case QL_FRAME_ACK:
         case QL_FRAME_ACK_ECN: {
             const ql_frame_ack_t *f = &frame->u.ack;
-            WV(frame->type);           /* 0x02 or 0x03 */
+            WV(frame->type); /* 0x02 or 0x03 */
             WV(f->largest_acked);
             WV(f->ack_delay);
             WV(f->range_count);
@@ -1574,7 +1619,7 @@ int  ql_frame_encode(const ql_frame_t *frame, uint8_t *buf, size_t cap){
             /* 19.3.1 — each extra range is a (Gap, ACK Range Length) pair */
             for (uint64_t i = 0; i < f->range_count && i < QL_ACK_RANGE_MAX; i++) {
                 /* Gap = number of unacked packets between this range and the previous.
-                * On the wire: Gap is (actual_gap - 1), ACK Range is (count - 1)     */
+                 * On the wire: Gap is (actual_gap - 1), ACK Range is (count - 1)     */
                 WV(f->ranges[i].largest);   /* gap value already computed by caller   */
                 WV(f->ranges[i].count - 1); /* count - 1 per 19.3.1                  */
             }
@@ -1587,79 +1632,94 @@ int  ql_frame_encode(const ql_frame_t *frame, uint8_t *buf, size_t cap){
             }
             return (int)pos;
         }
-        case QL_FRAME_RESET_STREAM:{
+        case QL_FRAME_RESET_STREAM: {
             WV(0x04);
             WV(frame->u.reset_stream.stream_id);
             WV(frame->u.reset_stream.error_code);
             WV(frame->u.reset_stream.final_size);
             return (int)pos;
         }
-        case QL_FRAME_STOP_SENDING:{
+        case QL_FRAME_STOP_SENDING: {
             WV(0x05);
             WV(frame->u.stop_sending.stream_id);
             WV(frame->u.stop_sending.error_code);
             return (int)pos;
         }
-        case QL_FRAME_CRYPTO:{
+        case QL_FRAME_CRYPTO: {
             WV(0x06);
             WV(frame->u.crypto.offset);
             WV(frame->u.crypto.length);
             WB(frame->u.crypto.data, frame->u.crypto.length);
             return (int)pos;
         }
-        case QL_FRAME_NEW_TOKEN:{
+        case QL_FRAME_NEW_TOKEN: {
             WV(0x07);
             WV(frame->u.new_token.token_length);
             WB(frame->u.new_token.token, frame->u.new_token.token_length);
             return (int)pos;
         }
         /* all 8 STREAM variants fall through to same logic */
-        case QL_FRAME_STREAM: case QL_FRAME_STREAM_FIN:
-        case QL_FRAME_STREAM_LEN: case QL_FRAME_STREAM_LEN_FIN:
-        case QL_FRAME_STREAM_OFF: case QL_FRAME_STREAM_OFF_FIN:
-        case QL_FRAME_STREAM_OFF_LEN: case QL_FRAME_STREAM_OFF_LEN_FIN: {
+        case QL_FRAME_STREAM:
+        case QL_FRAME_STREAM_FIN:
+        case QL_FRAME_STREAM_LEN:
+        case QL_FRAME_STREAM_LEN_FIN:
+        case QL_FRAME_STREAM_OFF:
+        case QL_FRAME_STREAM_OFF_FIN:
+        case QL_FRAME_STREAM_OFF_LEN:
+        case QL_FRAME_STREAM_OFF_LEN_FIN: {
             const ql_frame_stream_t *f = &frame->u.stream;
-            uint8_t type = 0x08
-                | (f->fin        ? 0x01 : 0)
-                | (f->has_length ? 0x02 : 0)
-                | (f->has_offset ? 0x04 : 0);
-            WV(type); WV(f->stream_id);
-            if (f->has_offset) WV(f->offset);
-            if (f->has_length) WV(f->length);
+            uint8_t type               = 0x08 | (f->fin ? 0x01 : 0) | (f->has_length ? 0x02 : 0) |
+                           (f->has_offset ? 0x04 : 0);
+            WV(type);
+            WV(f->stream_id);
+            if (f->has_offset) {
+                WV(f->offset);
+            }
+            if (f->has_length) {
+                WV(f->length);
+            }
             WB(f->data, f->length);
             return (int)pos;
         }
         case QL_FRAME_MAX_DATA:
-        WV(0x10); WV(frame->u.max_data.maximum_data);
-        return (int)pos;
+            WV(0x10);
+            WV(frame->u.max_data.maximum_data);
+            return (int)pos;
 
         case QL_FRAME_MAX_STREAM_DATA:
-            WV(0x11); WV(frame->u.max_stream_data.stream_id);
+            WV(0x11);
+            WV(frame->u.max_stream_data.stream_id);
             WV(frame->u.max_stream_data.maximum_stream_data);
             return (int)pos;
 
         case QL_FRAME_MAX_STREAMS_BIDI:
         case QL_FRAME_MAX_STREAMS_UNI:
-            WV(frame->type); WV(frame->u.max_streams.maximum_streams);
+            WV(frame->type);
+            WV(frame->u.max_streams.maximum_streams);
             return (int)pos;
 
         case QL_FRAME_DATA_BLOCKED:
-            WV(0x14); WV(frame->u.data_blocked.data_limit);
+            WV(0x14);
+            WV(frame->u.data_blocked.data_limit);
             return (int)pos;
 
         case QL_FRAME_STREAM_DATA_BLOCKED:
-            WV(0x15); WV(frame->u.stream_data_blocked.stream_id);
+            WV(0x15);
+            WV(frame->u.stream_data_blocked.stream_id);
             WV(frame->u.stream_data_blocked.stream_data_limit);
             return (int)pos;
 
         case QL_FRAME_STREAMS_BLOCKED_BIDI:
         case QL_FRAME_STREAMS_BLOCKED_UNI:
-            WV(frame->type); WV(frame->u.streams_blocked.stream_limit);
+            WV(frame->type);
+            WV(frame->u.streams_blocked.stream_limit);
             return (int)pos;
 
         case QL_FRAME_NEW_CONNECTION_ID: {
             const ql_frame_new_cid_t *f = &frame->u.new_cid;
-            WV(0x18); WV(f->sequence_num); WV(f->retire_prior_to);
+            WV(0x18);
+            WV(f->sequence_num);
+            WV(f->retire_prior_to);
             /* cid_len is a plain uint8 on the wire, NOT a varint */
             WB(&f->cid.len, 1);
             WB(f->cid.data, f->cid.len);
@@ -1668,29 +1728,37 @@ int  ql_frame_encode(const ql_frame_t *frame, uint8_t *buf, size_t cap){
         }
 
         case QL_FRAME_RETIRE_CONNECTION_ID:
-            WV(0x19); WV(frame->u.retire_cid.sequence_num);
+            WV(0x19);
+            WV(frame->u.retire_cid.sequence_num);
             return (int)pos;
 
         case QL_FRAME_PATH_CHALLENGE:
             /* data is 8 raw bytes, NOT a varint */
-            WV(0x1A); WB(frame->u.path_challenge.data.data, QL_PATH_DATA_LEN);
+            WV(0x1A);
+            WB(frame->u.path_challenge.data.data, QL_PATH_DATA_LEN);
             return (int)pos;
 
         case QL_FRAME_PATH_RESPONSE:
-            WV(0x1B); WB(frame->u.path_response.data.data, QL_PATH_DATA_LEN);
+            WV(0x1B);
+            WB(frame->u.path_response.data.data, QL_PATH_DATA_LEN);
             return (int)pos;
 
         case QL_FRAME_CONNECTION_CLOSE: {
             const ql_frame_conn_close_t *f = &frame->u.conn_close;
-            WV(0x1C); WV(f->error_code); WV(f->frame_type);
-            WV(f->reason_length); WB(f->reason_phrase, f->reason_length);
+            WV(0x1C);
+            WV(f->error_code);
+            WV(f->frame_type);
+            WV(f->reason_length);
+            WB(f->reason_phrase, f->reason_length);
             return (int)pos;
         }
         case QL_FRAME_CONNECTION_CLOSE_APP: {
             const ql_frame_conn_close_t *f = &frame->u.conn_close;
             /* 0x1D has no frame_type field */
-            WV(0x1D); WV(f->app_error_code);
-            WV(f->reason_length); WB(f->reason_phrase, f->reason_length);
+            WV(0x1D);
+            WV(f->app_error_code);
+            WV(f->reason_length);
+            WB(f->reason_phrase, f->reason_length);
             return (int)pos;
         }
 
@@ -1703,209 +1771,231 @@ int  ql_frame_encode(const ql_frame_t *frame, uint8_t *buf, size_t cap){
     }
 }
 
-int  ql_frame_decode(const uint8_t *buf, size_t len, ql_frame_t *out){
-    if(!buf || !out || len == 0) return QLITE_ERR_ARGS;
+int ql_frame_decode(const uint8_t *buf, size_t len, ql_frame_t *out) {
+    if (!buf || !out || len == 0) {
+        return QLITE_ERR_ARGS;
+    }
     size_t pos = 0;
 
     // step 1: read the type varint — tells us which frame this is
     ql_varint_t type_vi;
     int n = ql_varint_decode(buf, len, &type_vi);
-    if (n < 0) return n;
+    if (n < 0) {
+        return n;
+    }
     pos += n;
 
     memset(out, 0, sizeof(*out));
     out->type = (ql_frame_type_t)type_vi;
 
     switch (out->type) {
-    case QL_FRAME_PADDING:{
-        size_t count = 1;
-        while(pos < len && buf[pos] == 0x00) { pos++; count++;}
-        out->u.padding.length = count;
-        return (int)pos;
-    }
-
-    case QL_FRAME_PING:
-        return (int)pos;
-
-    case QL_FRAME_ACK:
-    case QL_FRAME_ACK_ECN:{
-        ql_frame_ack_t *a = &out->u.ack;
-        a->has_ecn = (out->type == QL_FRAME_ACK_ECN);
-
-        RV(a->largest_acked);
-        RV(a->ack_delay);
-        RV(a->range_count);
-        RV(a->first_ack_range);
-
-        ql_pkt_num_t prev_sml = a->largest_acked - a->first_ack_range;
-        uint64_t n_ranges = a->range_count < QL_ACK_RANGE_MAX ? a->range_count : QL_ACK_RANGE_MAX;
-
-        for(uint64_t i = 0; i < n_ranges; i++){
-            ql_varint_t gap, range_len;
-            RV(gap);
-            RV(range_len);
-
-            ql_pkt_num_t this_largest = prev_sml - gap - 2;
-            a->ranges[i].largest = this_largest;
-            a->ranges[i].count   = range_len + 1;
-            prev_sml = this_largest - range_len; /* smallest of this range */
+        case QL_FRAME_PADDING: {
+            size_t count = 1;
+            while (pos < len && buf[pos] == 0x00) {
+                pos++;
+                count++;
+            }
+            out->u.padding.length = count;
+            return (int)pos;
         }
 
-        if(a->has_ecn){
-            RV(a->ect0_count);
-            RV(a->ect1_count);
-            RV(a->ecn_ce_count);
+        case QL_FRAME_PING:
+            return (int)pos;
+
+        case QL_FRAME_ACK:
+        case QL_FRAME_ACK_ECN: {
+            ql_frame_ack_t *a = &out->u.ack;
+            a->has_ecn        = (out->type == QL_FRAME_ACK_ECN);
+
+            RV(a->largest_acked);
+            RV(a->ack_delay);
+            RV(a->range_count);
+            RV(a->first_ack_range);
+
+            ql_pkt_num_t prev_sml = a->largest_acked - a->first_ack_range;
+            uint64_t n_ranges =
+                a->range_count < QL_ACK_RANGE_MAX ? a->range_count : QL_ACK_RANGE_MAX;
+
+            for (uint64_t i = 0; i < n_ranges; i++) {
+                ql_varint_t gap, range_len;
+                RV(gap);
+                RV(range_len);
+
+                ql_pkt_num_t this_largest = prev_sml - gap - 2;
+                a->ranges[i].largest      = this_largest;
+                a->ranges[i].count        = range_len + 1;
+                prev_sml                  = this_largest - range_len; /* smallest of this range */
+            }
+
+            if (a->has_ecn) {
+                RV(a->ect0_count);
+                RV(a->ect1_count);
+                RV(a->ecn_ce_count);
+            }
+            return (int)pos;
         }
-        return (int)pos;
-    }
 
-    case QL_FRAME_RESET_STREAM:{
-        ql_frame_reset_stream_t *f = &out->u.reset_stream;
-        RV(f->stream_id);
-        RV(f->error_code);
-        RV(f->final_size);
-        return (int)pos;
-    }
-
-    case QL_FRAME_STOP_SENDING: {
-        ql_frame_stop_sending_t *f = &out->u.stop_sending;
-        RV(f->stream_id);
-        RV(f->error_code);
-        return (int)pos;
-    }
-
-     case QL_FRAME_CRYPTO: {
-        ql_frame_crypto_t *f = &out->u.crypto;
-        RV(f->offset);
-        RV(f->length);
-        if (pos + (size_t)f->length > len) return QLITE_ERR_BUF;
-        f->data = buf + pos;          /* zero-copy: points into caller's buf */
-        pos += (size_t)f->length;
-        return (int)pos;
-    }
-
-    case QL_FRAME_NEW_TOKEN: {
-        ql_frame_new_token_t *f = &out->u.new_token;
-        RV(f->token_length);
-        if (pos + (size_t)f->token_length > len) return QLITE_ERR_BUF;
-        f->token = buf + pos;         /* zero-copy */
-        pos += (size_t)f->token_length;
-        return (int)pos;
-    }
-
-    case QL_FRAME_STREAM:
-    case QL_FRAME_STREAM_FIN:
-    case QL_FRAME_STREAM_LEN:
-    case QL_FRAME_STREAM_LEN_FIN:
-    case QL_FRAME_STREAM_OFF:
-    case QL_FRAME_STREAM_OFF_FIN:
-    case QL_FRAME_STREAM_OFF_LEN:
-    case QL_FRAME_STREAM_OFF_LEN_FIN: {
-        ql_frame_stream_t *f = &out->u.stream;
-        uint8_t flags  = (uint8_t)out->type & 0x07u;
-        f->fin         = (flags & QL_STREAM_FLAG_FIN) != 0;
-        f->has_length  = (flags & QL_STREAM_FLAG_LEN) != 0;
-        f->has_offset  = (flags & QL_STREAM_FLAG_OFF) != 0;
-
-        RV(f->stream_id);
-
-        if (f->has_offset) RV(f->offset);  /* else offset = 0 (implicit) */
-
-        if (f->has_length) {
-            RV(f->length);
-            if (pos + (size_t)f->length > len) return QLITE_ERR_BUF;
-            f->data = buf + pos;      /* zero-copy */
-            pos += (size_t)f->length;
-        } else {
-            /* No LEN bit: data runs to end of the enclosing packet 19.8 */
-            f->length = (uint64_t)(len - pos);
-            f->data   = buf + pos;
-            pos       = len;
-        }
-        return (int)pos;
-    }
-
-    case QL_FRAME_MAX_DATA:
-        RV(out->u.max_data.maximum_data);
-        return (int)pos;
-
-    case QL_FRAME_MAX_STREAM_DATA: {
-        ql_frame_max_stream_data_t *f = &out->u.max_stream_data;
-        RV(f->stream_id);
-        RV(f->maximum_stream_data);
-        return (int)pos;
-    }
-
-    case QL_FRAME_MAX_STREAMS_BIDI:
-    case QL_FRAME_MAX_STREAMS_UNI:
-        RV(out->u.max_streams.maximum_streams);
-        return (int)pos;
-
-    case QL_FRAME_DATA_BLOCKED:
-        RV(out->u.data_blocked.data_limit);
-        return (int)pos;
-
-    case QL_FRAME_STREAM_DATA_BLOCKED: {
-        ql_frame_stream_data_blocked_t *f = &out->u.stream_data_blocked;
-        RV(f->stream_id);
-        RV(f->stream_data_limit);
-        return (int)pos;
-    }
-
-    case QL_FRAME_STREAMS_BLOCKED_BIDI:
-    case QL_FRAME_STREAMS_BLOCKED_UNI:
-        RV(out->u.streams_blocked.stream_limit);
-        return (int)pos;
-
-    case QL_FRAME_NEW_CONNECTION_ID: {
-        ql_frame_new_cid_t *f = &out->u.new_cid;
-        RV(f->sequence_num);
-        RV(f->retire_prior_to);
-        /* CID length is a plain uint8_t on the wire, NOT a varint 19.15 */
-        if (pos >= len) return QLITE_ERR_BUF;
-        f->cid.len = buf[pos++];
-        if (f->cid.len > QL_CID_MAX_LEN) return QLITE_ERR_PROTO;
-        RB(f->cid.data, f->cid.len);
-        /* Stateless Reset Token: always exactly 16 bytes 19.15 */
-        RB(f->stateless_reset_token.data, QL_RESET_TOKEN_LEN);
-        return (int)pos;
-    }
-
-    case QL_FRAME_RETIRE_CONNECTION_ID:
-        RV(out->u.retire_cid.sequence_num);
-        return (int)pos;
-
-    case QL_FRAME_PATH_CHALLENGE:
-        RB(out->u.path_challenge.data.data, QL_PATH_DATA_LEN);
-        return (int)pos;
-
-    case QL_FRAME_PATH_RESPONSE:
-        RB(out->u.path_response.data.data, QL_PATH_DATA_LEN);
-        return (int)pos;
-
-    case QL_FRAME_CONNECTION_CLOSE:
-    case QL_FRAME_CONNECTION_CLOSE_APP: {
-        ql_frame_conn_close_t *f = &out->u.conn_close;
-        f->is_app = (out->type == QL_FRAME_CONNECTION_CLOSE_APP);
-
-        if (!f->is_app) {
+        case QL_FRAME_RESET_STREAM: {
+            ql_frame_reset_stream_t *f = &out->u.reset_stream;
+            RV(f->stream_id);
             RV(f->error_code);
-            RV(f->frame_type);
-        } else {
-            RV(f->app_error_code);
+            RV(f->final_size);
+            return (int)pos;
         }
-        RV(f->reason_length);
-        if (pos + (size_t)f->reason_length > len) return QLITE_ERR_BUF;
-        f->reason_phrase = buf + pos;  /* zero-copy */
-        pos += (size_t)f->reason_length;
-        return (int)pos;
-    }
 
-    case QL_FRAME_HANDSHAKE_DONE:
-        return (int)pos;
+        case QL_FRAME_STOP_SENDING: {
+            ql_frame_stop_sending_t *f = &out->u.stop_sending;
+            RV(f->stream_id);
+            RV(f->error_code);
+            return (int)pos;
+        }
 
-    default:
-        return QLITE_ERR_PROTO;
+        case QL_FRAME_CRYPTO: {
+            ql_frame_crypto_t *f = &out->u.crypto;
+            RV(f->offset);
+            RV(f->length);
+            if (pos + (size_t)f->length > len) {
+                return QLITE_ERR_BUF;
+            }
+            f->data = buf + pos; /* zero-copy: points into caller's buf */
+            pos += (size_t)f->length;
+            return (int)pos;
+        }
+
+        case QL_FRAME_NEW_TOKEN: {
+            ql_frame_new_token_t *f = &out->u.new_token;
+            RV(f->token_length);
+            if (pos + (size_t)f->token_length > len) {
+                return QLITE_ERR_BUF;
+            }
+            f->token = buf + pos; /* zero-copy */
+            pos += (size_t)f->token_length;
+            return (int)pos;
+        }
+
+        case QL_FRAME_STREAM:
+        case QL_FRAME_STREAM_FIN:
+        case QL_FRAME_STREAM_LEN:
+        case QL_FRAME_STREAM_LEN_FIN:
+        case QL_FRAME_STREAM_OFF:
+        case QL_FRAME_STREAM_OFF_FIN:
+        case QL_FRAME_STREAM_OFF_LEN:
+        case QL_FRAME_STREAM_OFF_LEN_FIN: {
+            ql_frame_stream_t *f = &out->u.stream;
+            uint8_t flags        = (uint8_t)out->type & 0x07u;
+            f->fin               = (flags & QL_STREAM_FLAG_FIN) != 0;
+            f->has_length        = (flags & QL_STREAM_FLAG_LEN) != 0;
+            f->has_offset        = (flags & QL_STREAM_FLAG_OFF) != 0;
+
+            RV(f->stream_id);
+
+            if (f->has_offset) {
+                RV(f->offset); /* else offset = 0 (implicit) */
+            }
+
+            if (f->has_length) {
+                RV(f->length);
+                if (pos + (size_t)f->length > len) {
+                    return QLITE_ERR_BUF;
+                }
+                f->data = buf + pos; /* zero-copy */
+                pos += (size_t)f->length;
+            } else {
+                /* No LEN bit: data runs to end of the enclosing packet 19.8 */
+                f->length = (uint64_t)(len - pos);
+                f->data   = buf + pos;
+                pos       = len;
+            }
+            return (int)pos;
+        }
+
+        case QL_FRAME_MAX_DATA:
+            RV(out->u.max_data.maximum_data);
+            return (int)pos;
+
+        case QL_FRAME_MAX_STREAM_DATA: {
+            ql_frame_max_stream_data_t *f = &out->u.max_stream_data;
+            RV(f->stream_id);
+            RV(f->maximum_stream_data);
+            return (int)pos;
+        }
+
+        case QL_FRAME_MAX_STREAMS_BIDI:
+        case QL_FRAME_MAX_STREAMS_UNI:
+            RV(out->u.max_streams.maximum_streams);
+            return (int)pos;
+
+        case QL_FRAME_DATA_BLOCKED:
+            RV(out->u.data_blocked.data_limit);
+            return (int)pos;
+
+        case QL_FRAME_STREAM_DATA_BLOCKED: {
+            ql_frame_stream_data_blocked_t *f = &out->u.stream_data_blocked;
+            RV(f->stream_id);
+            RV(f->stream_data_limit);
+            return (int)pos;
+        }
+
+        case QL_FRAME_STREAMS_BLOCKED_BIDI:
+        case QL_FRAME_STREAMS_BLOCKED_UNI:
+            RV(out->u.streams_blocked.stream_limit);
+            return (int)pos;
+
+        case QL_FRAME_NEW_CONNECTION_ID: {
+            ql_frame_new_cid_t *f = &out->u.new_cid;
+            RV(f->sequence_num);
+            RV(f->retire_prior_to);
+            /* CID length is a plain uint8_t on the wire, NOT a varint 19.15 */
+            if (pos >= len) {
+                return QLITE_ERR_BUF;
+            }
+            f->cid.len = buf[pos++];
+            if (f->cid.len > QL_CID_MAX_LEN) {
+                return QLITE_ERR_PROTO;
+            }
+            RB(f->cid.data, f->cid.len);
+            /* Stateless Reset Token: always exactly 16 bytes 19.15 */
+            RB(f->stateless_reset_token.data, QL_RESET_TOKEN_LEN);
+            return (int)pos;
+        }
+
+        case QL_FRAME_RETIRE_CONNECTION_ID:
+            RV(out->u.retire_cid.sequence_num);
+            return (int)pos;
+
+        case QL_FRAME_PATH_CHALLENGE:
+            RB(out->u.path_challenge.data.data, QL_PATH_DATA_LEN);
+            return (int)pos;
+
+        case QL_FRAME_PATH_RESPONSE:
+            RB(out->u.path_response.data.data, QL_PATH_DATA_LEN);
+            return (int)pos;
+
+        case QL_FRAME_CONNECTION_CLOSE:
+        case QL_FRAME_CONNECTION_CLOSE_APP: {
+            ql_frame_conn_close_t *f = &out->u.conn_close;
+            f->is_app                = (out->type == QL_FRAME_CONNECTION_CLOSE_APP);
+
+            if (!f->is_app) {
+                RV(f->error_code);
+                RV(f->frame_type);
+            } else {
+                RV(f->app_error_code);
+            }
+            RV(f->reason_length);
+            if (pos + (size_t)f->reason_length > len) {
+                return QLITE_ERR_BUF;
+            }
+            f->reason_phrase = buf + pos; /* zero-copy */
+            pos += (size_t)f->reason_length;
+            return (int)pos;
+        }
+
+        case QL_FRAME_HANDSHAKE_DONE:
+            return (int)pos;
+
+        default:
+            return QLITE_ERR_PROTO;
     }
 }
 
@@ -1925,8 +2015,8 @@ int  ql_frame_decode(const uint8_t *buf, size_t len, ql_frame_t *out){
  *   4. O_NONBLOCK
  *   5. bind()
  */
-int  ql_udp_socket(const char *bind_addr, uint16_t port){
-    int fd = -1;
+int ql_udp_socket(const char *bind_addr, uint16_t port) {
+    int fd  = -1;
     int one = 1;
     int flags;
 
@@ -1934,41 +2024,43 @@ int  ql_udp_socket(const char *bind_addr, uint16_t port){
         try ipv6 first (dual-stack on linux handles ipv4 too)
         fall back to ipv4 if ipv6 is not available
     */
-   fd = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
-   if(fd >=0){
-    /* allow ipv4 client on the ipv6*/
-    int ipv6_only = 0;
-    setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &ipv6_only, sizeof(ipv6_only));
+    fd = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
+    if (fd >= 0) {
+        /* allow ipv4 client on the ipv6*/
+        int ipv6_only = 0;
+        setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &ipv6_only, sizeof(ipv6_only));
 
-    struct sockaddr_in6 addr6;
-    memset(&addr6, 0, sizeof(addr6));
-    addr6.sin6_family = AF_INET6;
-    addr6.sin6_port = htons(port);
+        struct sockaddr_in6 addr6;
+        memset(&addr6, 0, sizeof(addr6));
+        addr6.sin6_family = AF_INET6;
+        addr6.sin6_port   = htons(port);
 
-    if(bind_addr && bind_addr[0]){
-        if(inet_pton(AF_INET6, bind_addr, &addr6.sin6_addr) != 1){
-            close(fd);
-            fd = -1;
-            goto try_ipv4;
+        if (bind_addr && bind_addr[0]) {
+            if (inet_pton(AF_INET6, bind_addr, &addr6.sin6_addr) != 1) {
+                close(fd);
+                fd = -1;
+                goto try_ipv4;
+            }
+        } else {
+            addr6.sin6_addr = in6addr_any;
         }
-    }else{
-        addr6.sin6_addr = in6addr_any;
-    }
 
-    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
-    flags = fcntl(fd, F_GETFL, 0);
-    if(flags < 0 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0 ||
-        bind(fd, (struct sockaddr *)&addr6, sizeof(addr6)) != 0){
+        setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+        flags = fcntl(fd, F_GETFL, 0);
+        if (flags < 0 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0 ||
+            bind(fd, (struct sockaddr *)&addr6, sizeof(addr6)) != 0) {
             close(fd);
             fd = -1;
-    }else{
-        return fd;
+        } else {
+            return fd;
+        }
     }
-   }
 
 try_ipv4:
-   fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (fd < 0) return QLITE_ERR_INTERNAL;
+    fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (fd < 0) {
+        return QLITE_ERR_INTERNAL;
+    }
 
     struct sockaddr_in addr4;
     memset(&addr4, 0, sizeof(addr4));
@@ -2005,15 +2097,22 @@ try_ipv4:
  * and re-fragment — we surface this as QLITE_ERR_BUF so the caller can
  * detect it.
  */
-int  ql_udp_send(int fd, const struct sockaddr *addr, socklen_t addrlen,
-                  const uint8_t *buf, size_t len)
-{
-    if(len <= 0) return QLITE_ERR_ARGS;
+int ql_udp_send(int fd, const struct sockaddr *addr, socklen_t addrlen, const uint8_t *buf,
+                size_t len) {
+    if (len <= 0) {
+        return QLITE_ERR_ARGS;
+    }
     ssize_t sent = sendto(fd, buf, len, 0, addr, addrlen);
-    if(sent >= 0) return (int)sent;
+    if (sent >= 0) {
+        return (int)sent;
+    }
 
-    if(errno == EAGAIN || errno == EWOULDBLOCK) return QLITE_ERR_WOULDBLOCK;
-    if(errno == EMSGSIZE) return QLITE_ERR_BUF;
+    if (errno == EAGAIN || errno == EWOULDBLOCK) {
+        return QLITE_ERR_WOULDBLOCK;
+    }
+    if (errno == EMSGSIZE) {
+        return QLITE_ERR_BUF;
+    }
     return QLITE_ERR_INTERNAL;
 }
 
@@ -2025,26 +2124,25 @@ int  ql_udp_send(int fd, const struct sockaddr *addr, socklen_t addrlen,
  *
  * src and srclen are populated with the sender's address (may be NULL).
  */
-int  ql_udp_recv(int fd, uint8_t *buf, size_t cap,
-                  struct sockaddr_storage *src, socklen_t *srclen)
-{
+int ql_udp_recv(int fd, uint8_t *buf, size_t cap, struct sockaddr_storage *src, socklen_t *srclen) {
     socklen_t addrlen = src ? sizeof(*src) : 0;
-    ssize_t n = recvfrom(fd, buf, cap, 0,
-                            src ? (struct sockaddr *)src : NULL,
-                            src ? &addrlen : NULL);
+    ssize_t n =
+        recvfrom(fd, buf, cap, 0, src ? (struct sockaddr *)src : NULL, src ? &addrlen : NULL);
 
-    if(n>=0){
-        if(srclen) *srclen = addrlen;
+    if (n >= 0) {
+        if (srclen) {
+            *srclen = addrlen;
+        }
         return (int)n;
     }
-    if(errno == EAGAIN || errno == EWOULDBLOCK) return QLITE_ERR_WOULDBLOCK;
+    if (errno == EAGAIN || errno == EWOULDBLOCK) {
+        return QLITE_ERR_WOULDBLOCK;
+    }
     return QLITE_ERR_INTERNAL;
 }
 
 /* RFC 9001 5.3 — build per-packet nonce by XOR-ing IV with packet number */
-static void ql__build_nonce(const ql_keys_t *key, ql_pkt_num_t pkt_num,
-                             uint8_t *nonce)
-{
+static void ql__build_nonce(const ql_keys_t *key, ql_pkt_num_t pkt_num, uint8_t *nonce) {
     memcpy(nonce, key->iv, key->iv_len);
     /* packet number is big-endian in the rightmost bytes */
     for (int i = 0; i < 8; i++) {
@@ -2053,13 +2151,14 @@ static void ql__build_nonce(const ql_keys_t *key, ql_pkt_num_t pkt_num,
 }
 
 /* AEAD seal / open (RFC 9001 5.3) */
-int  ql_aead_seal(const ql_keys_t *key, ql_pkt_num_t pkt_num,
-                   const uint8_t *aad, size_t aad_len,
-                   const uint8_t *plaintext, size_t pt_len,
-                   uint8_t *out, size_t cap)
-{
-    if(!key || !key->is_set || !out) return QLITE_ERR_ARGS;
-    if(cap < pt_len + QL_AEAD_TAG_LEN) return QLITE_ERR_BUF;
+int ql_aead_seal(const ql_keys_t *key, ql_pkt_num_t pkt_num, const uint8_t *aad, size_t aad_len,
+                 const uint8_t *plaintext, size_t pt_len, uint8_t *out, size_t cap) {
+    if (!key || !key->is_set || !out) {
+        return QLITE_ERR_ARGS;
+    }
+    if (cap < pt_len + QL_AEAD_TAG_LEN) {
+        return QLITE_ERR_BUF;
+    }
 
     uint8_t nonce[QL_AEAD_IV_MAX_LEN];
     ql__build_nonce(key, pkt_num, nonce);
@@ -2067,19 +2166,34 @@ int  ql_aead_seal(const ql_keys_t *key, ql_pkt_num_t pkt_num,
     const EVP_CIPHER *cipher = (key->key_len == 16) ? EVP_aes_128_gcm() : EVP_aes_256_gcm();
 
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
-    if(!ctx) return QLITE_ERR_INTERNAL;
+    if (!ctx) {
+        return QLITE_ERR_INTERNAL;
+    }
 
-    int ret = QLITE_ERR_CRYPTO;
-    int outl =0, outl2 = 0;
+    int ret  = QLITE_ERR_CRYPTO;
+    int outl = 0, outl2 = 0;
 
-    if (!EVP_EncryptInit_ex(ctx, cipher, NULL, NULL, NULL))            goto done;
-    if (!EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, key->iv_len, NULL)) goto done;
-    if (!EVP_EncryptInit_ex(ctx, NULL, NULL, key->key, nonce))         goto done;
-    if (aad_len && !EVP_EncryptUpdate(ctx, NULL, &outl, aad, (int)aad_len)) goto done;
-    if (!EVP_EncryptUpdate(ctx, out, &outl, plaintext, (int)pt_len))   goto done;
-    if (!EVP_EncryptFinal_ex(ctx, out + outl, &outl2))                 goto done;
-    if (!EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, QL_AEAD_TAG_LEN,
-                              out + outl + outl2))                      goto done;
+    if (!EVP_EncryptInit_ex(ctx, cipher, NULL, NULL, NULL)) {
+        goto done;
+    }
+    if (!EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, key->iv_len, NULL)) {
+        goto done;
+    }
+    if (!EVP_EncryptInit_ex(ctx, NULL, NULL, key->key, nonce)) {
+        goto done;
+    }
+    if (aad_len && !EVP_EncryptUpdate(ctx, NULL, &outl, aad, (int)aad_len)) {
+        goto done;
+    }
+    if (!EVP_EncryptUpdate(ctx, out, &outl, plaintext, (int)pt_len)) {
+        goto done;
+    }
+    if (!EVP_EncryptFinal_ex(ctx, out + outl, &outl2)) {
+        goto done;
+    }
+    if (!EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, QL_AEAD_TAG_LEN, out + outl + outl2)) {
+        goto done;
+    }
 
     ret = outl + outl2 + QL_AEAD_TAG_LEN;
 done:
@@ -2087,41 +2201,56 @@ done:
     return ret;
 }
 
-int  ql_aead_open(const ql_keys_t *key, ql_pkt_num_t pkt_num,
-                   const uint8_t *aad, size_t aad_len,
-                   const uint8_t *ciphertext, size_t ct_len,
-                   uint8_t *out, size_t cap)
-{
-    if (!key || !key->is_set || !ciphertext || !out)
+int ql_aead_open(const ql_keys_t *key, ql_pkt_num_t pkt_num, const uint8_t *aad, size_t aad_len,
+                 const uint8_t *ciphertext, size_t ct_len, uint8_t *out, size_t cap) {
+    if (!key || !key->is_set || !ciphertext || !out) {
         return QLITE_ERR_ARGS;
-    if (ct_len < QL_AEAD_TAG_LEN)
+    }
+    if (ct_len < QL_AEAD_TAG_LEN) {
         return QLITE_ERR_PROTO;
+    }
 
     size_t pt_len = ct_len - QL_AEAD_TAG_LEN;
-    if (cap < pt_len)
+    if (cap < pt_len) {
         return QLITE_ERR_BUF;
+    }
 
     uint8_t nonce[QL_AEAD_IV_MAX_LEN];
     ql__build_nonce(key, pkt_num, nonce);
 
-    const EVP_CIPHER *cipher = (key->key_len == 16)
-        ? EVP_aes_128_gcm() : EVP_aes_256_gcm();
+    const EVP_CIPHER *cipher = (key->key_len == 16) ? EVP_aes_128_gcm() : EVP_aes_256_gcm();
 
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
-    if (!ctx) return QLITE_ERR_INTERNAL;
+    if (!ctx) {
+        return QLITE_ERR_INTERNAL;
+    }
 
-    int ret = QLITE_ERR_CRYPTO;
+    int ret  = QLITE_ERR_CRYPTO;
     int outl = 0, outl2 = 0;
 
-    if (!EVP_DecryptInit_ex(ctx, cipher, NULL, NULL, NULL))            goto done;
-    if (!EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, key->iv_len, NULL)) goto done;
-    if (!EVP_DecryptInit_ex(ctx, NULL, NULL, key->key, nonce))         goto done;
-    if (aad_len && !EVP_DecryptUpdate(ctx, NULL, &outl, aad, (int)aad_len)) goto done;
-    if (!EVP_DecryptUpdate(ctx, out, &outl, ciphertext, (int)pt_len))  goto done;
+    if (!EVP_DecryptInit_ex(ctx, cipher, NULL, NULL, NULL)) {
+        goto done;
+    }
+    if (!EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, key->iv_len, NULL)) {
+        goto done;
+    }
+    if (!EVP_DecryptInit_ex(ctx, NULL, NULL, key->key, nonce)) {
+        goto done;
+    }
+    if (aad_len && !EVP_DecryptUpdate(ctx, NULL, &outl, aad, (int)aad_len)) {
+        goto done;
+    }
+    if (!EVP_DecryptUpdate(ctx, out, &outl, ciphertext, (int)pt_len)) {
+        goto done;
+    }
     /* set expected tag (last 16 bytes of ciphertext) */
     if (!EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, QL_AEAD_TAG_LEN,
-                              (void *)(ciphertext + pt_len)))           goto done;
-    if (EVP_DecryptFinal_ex(ctx, out + outl, &outl2) <= 0)             goto done;
+                             (void *)(ciphertext + pt_len))) {
+        goto done;
+    }
+    if (EVP_DecryptFinal_ex(ctx, out + outl, &outl2) <= 0) {
+        goto done;
+    }
 
     ret = outl + outl2;
 done:
@@ -2139,48 +2268,57 @@ done:
  * hdr layout expected: hdr[0] = first_byte, hdr[hdr_len - pkt_num_len ..] = pkt_num bytes
  * We detect long vs short by the high bit of hdr[0].
  */
-static int ql__hp_apply(const ql_keys_t *key, uint8_t *hdr, size_t hdr_len,
-                         const uint8_t *sample, bool protect)
-{
-    if (!key || !key->is_set || !hdr || !sample || hdr_len < 2)
+static int ql__hp_apply(const ql_keys_t *key, uint8_t *hdr, size_t hdr_len, const uint8_t *sample,
+                        bool protect) {
+    if (!key || !key->is_set || !hdr || !sample || hdr_len < 2) {
         return QLITE_ERR_ARGS;
+    }
 
     /* AES-ECB on one 16-byte block via EVP — no deprecated AES_* symbols */
     uint8_t mask[16];
     int mask_len = 0;
 
-    const EVP_CIPHER *ecb = (key->hp_len == 16)
-        ? EVP_aes_128_ecb() : EVP_aes_256_ecb();
+    const EVP_CIPHER *ecb = (key->hp_len == 16) ? EVP_aes_128_ecb() : EVP_aes_256_ecb();
 
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
-    if (!ctx) return QLITE_ERR_INTERNAL;
+    if (!ctx) {
+        return QLITE_ERR_INTERNAL;
+    }
 
     int ret = QLITE_ERR_CRYPTO;
 
-    if (!EVP_EncryptInit_ex(ctx, ecb, NULL, key->hp, NULL)) goto done;
-    EVP_CIPHER_CTX_set_padding(ctx, 0);   /* single exact block, no padding */
-    if (!EVP_EncryptUpdate(ctx, mask, &mask_len, sample, 16)) goto done;
+    if (!EVP_EncryptInit_ex(ctx, ecb, NULL, key->hp, NULL)) {
+        goto done;
+    }
+    EVP_CIPHER_CTX_set_padding(ctx, 0); /* single exact block, no padding */
+    if (!EVP_EncryptUpdate(ctx, mask, &mask_len, sample, 16)) {
+        goto done;
+    }
     /* no EVP_EncryptFinal needed — padding disabled, block is already complete */
 
     {
-        uint8_t first    = hdr[0];
-        bool    is_long  = (first & 0x80) != 0;
+        uint8_t first = hdr[0];
+        bool is_long  = (first & 0x80) != 0;
         uint8_t pn_len;
 
         if (protect) {
             pn_len = (first & 0x03) + 1;
         } else {
             uint8_t first_unmasked = first ^ (mask[0] & (is_long ? 0x0F : 0x1F));
-            pn_len = (first_unmasked & 0x03) + 1;
+            pn_len                 = (first_unmasked & 0x03) + 1;
         }
 
-        if (hdr_len < (size_t)(1 + pn_len)) { ret = QLITE_ERR_BUF; goto done; }
+        if (hdr_len < (size_t)(1 + pn_len)) {
+            ret = QLITE_ERR_BUF;
+            goto done;
+        }
 
         hdr[0] ^= mask[0] & (is_long ? 0x0F : 0x1F);
 
         uint8_t *pn = hdr + hdr_len - pn_len;
-        for (uint8_t i = 0; i < pn_len; i++)
+        for (uint8_t i = 0; i < pn_len; i++) {
             pn[i] ^= mask[1 + i];
+        }
     }
 
     ret = QLITE_OK;
@@ -2190,15 +2328,11 @@ done:
 }
 
 /* Header protection (RFC 9001 5.4) */
-int  ql_hp_protect(const ql_keys_t *key, uint8_t *hdr, size_t hdr_len,
-                    const uint8_t *sample)
-{
+int ql_hp_protect(const ql_keys_t *key, uint8_t *hdr, size_t hdr_len, const uint8_t *sample) {
     return ql__hp_apply(key, hdr, hdr_len, sample, true);
 }
 
-int  ql_hp_remove(const ql_keys_t *key, uint8_t *hdr, size_t hdr_len,
-                   const uint8_t *sample)
-{
+int ql_hp_remove(const ql_keys_t *key, uint8_t *hdr, size_t hdr_len, const uint8_t *sample) {
     return ql__hp_apply(key, hdr, hdr_len, sample, false);
 }
 
@@ -2215,18 +2349,18 @@ int  ql_hp_remove(const ql_keys_t *key, uint8_t *hdr, size_t hdr_len,
  *     opaque context<0..255> = Context;   // empty for QUIC key derivation
  * };
  * ------------------------------------------------------------------------- */
-int hkdf_expand_label(const EVP_MD *md,
-                              const uint8_t *secret, size_t secret_len,
-                              const char *label,      /* WITHOUT "tls13 " prefix */
-                              uint8_t *out, size_t out_len)
-{
+int hkdf_expand_label(const EVP_MD *md, const uint8_t *secret, size_t secret_len,
+                      const char *label, /* WITHOUT "tls13 " prefix */
+                      uint8_t *out, size_t out_len) {
     uint8_t hkdf_label[2 + 1 + 6 + 64 + 1]; /* generous fixed bound */
-    size_t  pos = 0;
-    size_t  label_len = strlen(label);
-    const char prefix[] = "tls13 ";
+    size_t pos            = 0;
+    size_t label_len      = strlen(label);
+    const char prefix[]   = "tls13 ";
     size_t full_label_len = sizeof(prefix) - 1 + label_len;
 
-    if (full_label_len > 255 || out_len > 0xFFFF) return -1;
+    if (full_label_len > 255 || out_len > 0xFFFF) {
+        return -1;
+    }
 
     hkdf_label[pos++] = (uint8_t)(out_len >> 8);
     hkdf_label[pos++] = (uint8_t)(out_len & 0xFF);
@@ -2235,20 +2369,34 @@ int hkdf_expand_label(const EVP_MD *md,
     pos += sizeof(prefix) - 1;
     memcpy(hkdf_label + pos, label, label_len);
     pos += label_len;
-    hkdf_label[pos++] = 0x00;   /* empty Context */
+    hkdf_label[pos++] = 0x00; /* empty Context */
 
     EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new_from_name(NULL, "HKDF", NULL);
-    if (!pctx) return -1;
+    if (!pctx) {
+        return -1;
+    }
 
     int rc = -1;
-    if (EVP_PKEY_derive_init(pctx) <= 0) goto out;
-    if (EVP_PKEY_CTX_hkdf_mode(pctx, EVP_PKEY_HKDEF_MODE_EXPAND_ONLY) <= 0) goto out;
-    if (EVP_PKEY_CTX_set_hkdf_md(pctx, md) <= 0) goto out;
-    if (EVP_PKEY_CTX_set1_hkdf_key(pctx, secret, (int)secret_len) <= 0) goto out;
-    if (EVP_PKEY_CTX_add1_hkdf_info(pctx, hkdf_label, (int)pos) <= 0) goto out;
+    if (EVP_PKEY_derive_init(pctx) <= 0) {
+        goto out;
+    }
+    if (EVP_PKEY_CTX_hkdf_mode(pctx, EVP_PKEY_HKDEF_MODE_EXPAND_ONLY) <= 0) {
+        goto out;
+    }
+    if (EVP_PKEY_CTX_set_hkdf_md(pctx, md) <= 0) {
+        goto out;
+    }
+    if (EVP_PKEY_CTX_set1_hkdf_key(pctx, secret, (int)secret_len) <= 0) {
+        goto out;
+    }
+    if (EVP_PKEY_CTX_add1_hkdf_info(pctx, hkdf_label, (int)pos) <= 0) {
+        goto out;
+    }
     {
         size_t outl = out_len;
-        if (EVP_PKEY_derive(pctx, out, &outl) <= 0 || outl != out_len) goto out;
+        if (EVP_PKEY_derive(pctx, out, &outl) <= 0 || outl != out_len) {
+            goto out;
+        }
     }
     rc = 0;
 out:
@@ -2256,33 +2404,41 @@ out:
     return rc;
 }
 
-int  ql_pkt_encode(const ql_pkt_hdr_t *hdr, const ql_keys_t *key,
-                    const uint8_t *payload, size_t payload_len,
-                    uint8_t *out, size_t cap)
-{
-    if(!hdr || !key || !out) return QLITE_ERR_ARGS;
+int ql_pkt_encode(const ql_pkt_hdr_t *hdr, const ql_keys_t *key, const uint8_t *payload,
+                  size_t payload_len, uint8_t *out, size_t cap) {
+    if (!hdr || !key || !out) {
+        return QLITE_ERR_ARGS;
+    }
     /* header -> ql_aead_seal() -> ql_hp_protect() */
     size_t pos = 0;
 
-    if(hdr->is_long){
+    if (hdr->is_long) {
         /* long header*/
         const ql_long_hdr_t *lh = &hdr->h.lhdr;
         // first byte
-        if(pos >= cap) return QLITE_ERR_BUF;
+        if (pos >= cap) {
+            return QLITE_ERR_BUF;
+        }
         out[pos++] = lh->first_byte;
 
-        if(pos + 4 > cap) return QLITE_ERR_BUF;
+        if (pos + 4 > cap) {
+            return QLITE_ERR_BUF;
+        }
         ql__write_be(out + pos, lh->version, 4);
         pos += 4;
 
         /* DCID LENGTH + DCID*/
-        if(pos + 1 + lh->dst_cid.len > cap) return QLITE_ERR_BUF;
+        if (pos + 1 + lh->dst_cid.len > cap) {
+            return QLITE_ERR_BUF;
+        }
         out[pos++] = lh->dst_cid.len;
         memcpy(out + pos, lh->dst_cid.data, lh->dst_cid.len);
         pos += lh->dst_cid.len;
 
         /* SCID length + SCID */
-        if (pos + 1 + lh->src_cid.len > cap) return QLITE_ERR_BUF;
+        if (pos + 1 + lh->src_cid.len > cap) {
+            return QLITE_ERR_BUF;
+        }
         out[pos++] = lh->src_cid.len;
         memcpy(out + pos, lh->src_cid.data, lh->src_cid.len);
         pos += lh->src_cid.len;
@@ -2290,18 +2446,26 @@ int  ql_pkt_encode(const ql_pkt_hdr_t *hdr, const ql_keys_t *key,
         /* Initial: token length + token */
         if (lh->pkt_type == QL_PKT_INITIAL) {
             int vn = ql_varint_encode(out + pos, cap - pos, lh->token_len);
-            if (vn < 0) return QLITE_ERR_BUF;
+            if (vn < 0) {
+                return QLITE_ERR_BUF;
+            }
             pos += (size_t)vn;
-            if (pos + lh->token_len > cap) return QLITE_ERR_BUF;
+            if (pos + lh->token_len > cap) {
+                return QLITE_ERR_BUF;
+            }
             memcpy(out + pos, lh->token, lh->token_len);
             pos += lh->token_len;
         }
 
         /* Length (payload + AEAD tag), leave space: encode as 2-byte varint */
-        size_t length_field_pos = pos;
+        size_t length_field_pos  = pos;
         uint64_t pkt_payload_len = payload_len + QL_AEAD_TAG_LEN;
-        if (pkt_payload_len > QL_VARINT_2B_MAX) return QLITE_ERR_BUF;
-        if (pos + 2 > cap) return QLITE_ERR_BUF;
+        if (pkt_payload_len > QL_VARINT_2B_MAX) {
+            return QLITE_ERR_BUF;
+        }
+        if (pos + 2 > cap) {
+            return QLITE_ERR_BUF;
+        }
         /* Always encode as 2-byte varint so the field is fixed-width */
         out[pos]     = 0x40 | (uint8_t)((pkt_payload_len >> 8) & 0x3F);
         out[pos + 1] = (uint8_t)(pkt_payload_len & 0xFF);
@@ -2309,9 +2473,11 @@ int  ql_pkt_encode(const ql_pkt_hdr_t *hdr, const ql_keys_t *key,
 
         /* Packet number — always encode as minimum width */
         size_t pn_pos = pos;
-        int pn_len = ql_pkt_num_encode(out + pos, lh->pkt_num,
-                                        QL_PKT_NUM_NONE /* simplified: chunk 2 passes largest_acked */);
-        if (pn_len < 0) return pn_len;
+        int pn_len    = ql_pkt_num_encode(
+            out + pos, lh->pkt_num, QL_PKT_NUM_NONE /* simplified: chunk 2 passes largest_acked */);
+        if (pn_len < 0) {
+            return pn_len;
+        }
         pos += (size_t)pn_len;
 
         /* Patch first byte's pkt-num-length field (bits 0–1) */
@@ -2319,104 +2485,137 @@ int  ql_pkt_encode(const ql_pkt_hdr_t *hdr, const ql_keys_t *key,
             (out[0] & ~QL_LONG_HDR_PKT_NUM_MASK) | (uint8_t)(pn_len - 1);
         (void)pn_pos;
 
-    }else{
+    } else {
         /* short header*/
         const ql_short_hdr_t *sh = &hdr->h.shdr;
-        if(pos >= cap) return QLITE_ERR_BUF;
+        if (pos >= cap) {
+            return QLITE_ERR_BUF;
+        }
         out[pos++] = sh->first_byte;
 
         /* DCID (Length known from the conn, no length prefix 17.3)*/
-        if(pos + sh->dst_cid.len > cap) return QLITE_ERR_BUF;
+        if (pos + sh->dst_cid.len > cap) {
+            return QLITE_ERR_BUF;
+        }
         memcpy(out + pos, sh->dst_cid.data, sh->dst_cid.len);
         pos += sh->dst_cid.len;
 
         /* pkt num*/
         int pn_len = ql_pkt_num_encode(out + pos, sh->pkt_num, QL_PKT_NUM_NONE);
-        if(pn_len < 0) return pn_len;
+        if (pn_len < 0) {
+            return pn_len;
+        }
         pos += (size_t)pn_len;
     }
 
-    if(pos + payload_len + QL_AEAD_TAG_LEN > cap) return QLITE_ERR_BUF;
+    if (pos + payload_len + QL_AEAD_TAG_LEN > cap) {
+        return QLITE_ERR_BUF;
+    }
 
-    int sealed = ql_aead_seal(key, 0, out, pos, payload, payload_len, out+pos, cap-pos);
-    if(sealed < 0) return sealed;
+    int sealed = ql_aead_seal(key, 0, out, pos, payload, payload_len, out + pos, cap - pos);
+    if (sealed < 0) {
+        return sealed;
+    }
     pos += (size_t)sealed;
 
     const uint8_t *sample = out + pos - QL_AEAD_TAG_LEN - payload_len + QL_HP_SAMPLE_OFFSET;
 
     int hp = ql_hp_protect(key, out, pos, sample);
-    if(hp < 0) return hp;
+    if (hp < 0) {
+        return hp;
+    }
 
     return (int)pos;
 }
 
-int  ql_pkt_decode(const uint8_t *buf, size_t len, const ql_keys_t *key,
-                    ql_pkt_hdr_t *hdr_out, uint8_t *payload_out, size_t cap);
+int ql_pkt_decode(const uint8_t *buf, size_t len, const ql_keys_t *key, ql_pkt_hdr_t *hdr_out,
+                  uint8_t *payload_out, size_t cap);
 
 /* Transport-parameter encode/decode 18 */
 int ql_tp_encode(const ql_transport_params_t *tp, uint8_t *buf, size_t cap) {
-    if (!tp || !buf) return QLITE_ERR_ARGS;
+    if (!tp || !buf) {
+        return QLITE_ERR_ARGS;
+    }
     size_t pos = 0;
 
-    if (tp->max_idle_timeout_ms)
+    if (tp->max_idle_timeout_ms) {
         TP_VARINT(QL_TP_MAX_IDLE_TIMEOUT, tp->max_idle_timeout_ms);
+    }
 
-    if (tp->max_udp_payload_size && tp->max_udp_payload_size != QL_MAX_UDP_PAYLOAD_DEFAULT)
+    if (tp->max_udp_payload_size && tp->max_udp_payload_size != QL_MAX_UDP_PAYLOAD_DEFAULT) {
         TP_VARINT(QL_TP_MAX_UDP_PAYLOAD_SIZE, tp->max_udp_payload_size);
+    }
 
-    if (tp->initial_max_data)
+    if (tp->initial_max_data) {
         TP_VARINT(QL_TP_INITIAL_MAX_DATA, tp->initial_max_data);
+    }
 
-    if (tp->initial_max_stream_data_bidi_local)
+    if (tp->initial_max_stream_data_bidi_local) {
         TP_VARINT(QL_TP_INITIAL_MAX_STREAM_DATA_BIDI_LOCAL, tp->initial_max_stream_data_bidi_local);
+    }
 
-    if (tp->initial_max_stream_data_bidi_remote)
-        TP_VARINT(QL_TP_INITIAL_MAX_STREAM_DATA_BIDI_REMOTE, tp->initial_max_stream_data_bidi_remote);
+    if (tp->initial_max_stream_data_bidi_remote) {
+        TP_VARINT(QL_TP_INITIAL_MAX_STREAM_DATA_BIDI_REMOTE,
+                  tp->initial_max_stream_data_bidi_remote);
+    }
 
-    if (tp->initial_max_stream_data_uni)
+    if (tp->initial_max_stream_data_uni) {
         TP_VARINT(QL_TP_INITIAL_MAX_STREAM_DATA_UNI, tp->initial_max_stream_data_uni);
+    }
 
-    if (tp->initial_max_streams_bidi)
+    if (tp->initial_max_streams_bidi) {
         TP_VARINT(QL_TP_INITIAL_MAX_STREAMS_BIDI, tp->initial_max_streams_bidi);
+    }
 
-    if (tp->initial_max_streams_uni)
+    if (tp->initial_max_streams_uni) {
         TP_VARINT(QL_TP_INITIAL_MAX_STREAMS_UNI, tp->initial_max_streams_uni);
+    }
 
-    if (tp->ack_delay_exponent != 0 && tp->ack_delay_exponent != QL_DEFAULT_ACK_DELAY_EXP)
+    if (tp->ack_delay_exponent != 0 && tp->ack_delay_exponent != QL_DEFAULT_ACK_DELAY_EXP) {
         TP_VARINT(QL_TP_ACK_DELAY_EXPONENT, tp->ack_delay_exponent);
+    }
 
-    if (tp->max_ack_delay_ms != 0 && tp->max_ack_delay_ms != QL_DEFAULT_MAX_ACK_DELAY_MS)
+    if (tp->max_ack_delay_ms != 0 && tp->max_ack_delay_ms != QL_DEFAULT_MAX_ACK_DELAY_MS) {
         TP_VARINT(QL_TP_MAX_ACK_DELAY, tp->max_ack_delay_ms);
+    }
 
-    if (tp->active_cid_limit != 0 && tp->active_cid_limit != QL_DEFAULT_ACTIVE_CID_LIMIT)
+    if (tp->active_cid_limit != 0 && tp->active_cid_limit != QL_DEFAULT_ACTIVE_CID_LIMIT) {
         TP_VARINT(QL_TP_ACTIVE_CONNECTION_ID_LIMIT, tp->active_cid_limit);
+    }
 
     if (tp->disable_active_migration) {
         /* Empty value — just id + length=0 */
         int n = ql_varint_encode(buf + pos, cap - pos, QL_TP_DISABLE_ACTIVE_MIGRATION);
-        if (n < 0 || pos + (size_t)n + 1 > cap) return QLITE_ERR_BUF;
+        if (n < 0 || pos + (size_t)n + 1 > cap) {
+            return QLITE_ERR_BUF;
+        }
         pos += (size_t)n;
-        buf[pos++] = 0x00;  /* length = 0 */
+        buf[pos++] = 0x00; /* length = 0 */
     }
 
-    if (tp->has_stateless_reset_token)
-        TP_BYTES(QL_TP_STATELESS_RESET_TOKEN,
-                 tp->stateless_reset_token.data, QL_RESET_TOKEN_LEN);
+    if (tp->has_stateless_reset_token) {
+        TP_BYTES(QL_TP_STATELESS_RESET_TOKEN, tp->stateless_reset_token.data, QL_RESET_TOKEN_LEN);
+    }
 
-    if (tp->original_dst_cid.len)
+    if (tp->original_dst_cid.len) {
         TP_CID(QL_TP_ORIGINAL_DST_CID, &tp->original_dst_cid);
+    }
 
-    if (tp->initial_src_cid.len)
+    if (tp->initial_src_cid.len) {
         TP_CID(QL_TP_INITIAL_SOURCE_CID, &tp->initial_src_cid);
+    }
 
-    if (tp->has_retry_src_cid && tp->retry_src_cid.len)
+    if (tp->has_retry_src_cid && tp->retry_src_cid.len) {
         TP_CID(QL_TP_RETRY_SOURCE_CID, &tp->retry_src_cid);
+    }
 
     return (int)pos;
 }
 
 int ql_tp_decode(const uint8_t *buf, size_t len, ql_transport_params_t *out) {
-    if (!buf || !out) return QLITE_ERR_ARGS;
+    if (!buf || !out) {
+        return QLITE_ERR_ARGS;
+    }
     memset(out, 0, sizeof(*out));
 
     /* Apply RFC defaults */
@@ -2428,83 +2627,127 @@ int ql_tp_decode(const uint8_t *buf, size_t len, ql_transport_params_t *out) {
     size_t pos = 0;
     while (pos < len) {
         ql_varint_t id, tp_len;
-        if (ql__read_varint(buf, &pos, len, &id)     < 0) return QLITE_ERR_PROTO;
-        if (ql__read_varint(buf, &pos, len, &tp_len) < 0) return QLITE_ERR_PROTO;
+        if (ql__read_varint(buf, &pos, len, &id) < 0) {
+            return QLITE_ERR_PROTO;
+        }
+        if (ql__read_varint(buf, &pos, len, &tp_len) < 0) {
+            return QLITE_ERR_PROTO;
+        }
 
         size_t val_end = pos + (size_t)tp_len;
-        if (val_end > len) return QLITE_ERR_PROTO;
+        if (val_end > len) {
+            return QLITE_ERR_PROTO;
+        }
 
         ql_varint_t v;
 
         switch ((ql_tp_id_t)id) {
             case QL_TP_MAX_IDLE_TIMEOUT:
-                if (ql_varint_decode(buf + pos, tp_len, &v) < 0) return QLITE_ERR_PROTO;
+                if (ql_varint_decode(buf + pos, tp_len, &v) < 0) {
+                    return QLITE_ERR_PROTO;
+                }
                 out->max_idle_timeout_ms = v;
                 break;
             case QL_TP_MAX_UDP_PAYLOAD_SIZE:
-                if (ql_varint_decode(buf + pos, tp_len, &v) < 0) return QLITE_ERR_PROTO;
-                if (v < QL_MIN_UDP_PAYLOAD_SIZE) return QLITE_ERR_PROTO;
+                if (ql_varint_decode(buf + pos, tp_len, &v) < 0) {
+                    return QLITE_ERR_PROTO;
+                }
+                if (v < QL_MIN_UDP_PAYLOAD_SIZE) {
+                    return QLITE_ERR_PROTO;
+                }
                 out->max_udp_payload_size = v;
                 break;
             case QL_TP_INITIAL_MAX_DATA:
-                if (ql_varint_decode(buf + pos, tp_len, &v) < 0) return QLITE_ERR_PROTO;
+                if (ql_varint_decode(buf + pos, tp_len, &v) < 0) {
+                    return QLITE_ERR_PROTO;
+                }
                 out->initial_max_data = v;
                 break;
             case QL_TP_INITIAL_MAX_STREAM_DATA_BIDI_LOCAL:
-                if (ql_varint_decode(buf + pos, tp_len, &v) < 0) return QLITE_ERR_PROTO;
+                if (ql_varint_decode(buf + pos, tp_len, &v) < 0) {
+                    return QLITE_ERR_PROTO;
+                }
                 out->initial_max_stream_data_bidi_local = v;
                 break;
             case QL_TP_INITIAL_MAX_STREAM_DATA_BIDI_REMOTE:
-                if (ql_varint_decode(buf + pos, tp_len, &v) < 0) return QLITE_ERR_PROTO;
+                if (ql_varint_decode(buf + pos, tp_len, &v) < 0) {
+                    return QLITE_ERR_PROTO;
+                }
                 out->initial_max_stream_data_bidi_remote = v;
                 break;
             case QL_TP_INITIAL_MAX_STREAM_DATA_UNI:
-                if (ql_varint_decode(buf + pos, tp_len, &v) < 0) return QLITE_ERR_PROTO;
+                if (ql_varint_decode(buf + pos, tp_len, &v) < 0) {
+                    return QLITE_ERR_PROTO;
+                }
                 out->initial_max_stream_data_uni = v;
                 break;
             case QL_TP_INITIAL_MAX_STREAMS_BIDI:
-                if (ql_varint_decode(buf + pos, tp_len, &v) < 0) return QLITE_ERR_PROTO;
+                if (ql_varint_decode(buf + pos, tp_len, &v) < 0) {
+                    return QLITE_ERR_PROTO;
+                }
                 out->initial_max_streams_bidi = v;
                 break;
             case QL_TP_INITIAL_MAX_STREAMS_UNI:
-                if (ql_varint_decode(buf + pos, tp_len, &v) < 0) return QLITE_ERR_PROTO;
+                if (ql_varint_decode(buf + pos, tp_len, &v) < 0) {
+                    return QLITE_ERR_PROTO;
+                }
                 out->initial_max_streams_uni = v;
                 break;
             case QL_TP_ACK_DELAY_EXPONENT:
-                if (ql_varint_decode(buf + pos, tp_len, &v) < 0) return QLITE_ERR_PROTO;
-                if (v > 20) return QLITE_ERR_PROTO; /* 18.2: MUST be <= 20 */
+                if (ql_varint_decode(buf + pos, tp_len, &v) < 0) {
+                    return QLITE_ERR_PROTO;
+                }
+                if (v > 20) {
+                    return QLITE_ERR_PROTO; /* 18.2: MUST be <= 20 */
+                }
                 out->ack_delay_exponent = v;
                 break;
             case QL_TP_MAX_ACK_DELAY:
-                if (ql_varint_decode(buf + pos, tp_len, &v) < 0) return QLITE_ERR_PROTO;
-                if (v >= (UINT64_C(1) << 14)) return QLITE_ERR_PROTO; /* 18.2 */
+                if (ql_varint_decode(buf + pos, tp_len, &v) < 0) {
+                    return QLITE_ERR_PROTO;
+                }
+                if (v >= (UINT64_C(1) << 14)) {
+                    return QLITE_ERR_PROTO; /* 18.2 */
+                }
                 out->max_ack_delay_ms = v;
                 break;
             case QL_TP_ACTIVE_CONNECTION_ID_LIMIT:
-                if (ql_varint_decode(buf + pos, tp_len, &v) < 0) return QLITE_ERR_PROTO;
-                if (v < 2) return QLITE_ERR_PROTO; /* 18.2: MUST be >= 2 */
+                if (ql_varint_decode(buf + pos, tp_len, &v) < 0) {
+                    return QLITE_ERR_PROTO;
+                }
+                if (v < 2) {
+                    return QLITE_ERR_PROTO; /* 18.2: MUST be >= 2 */
+                }
                 out->active_cid_limit = v;
                 break;
             case QL_TP_DISABLE_ACTIVE_MIGRATION:
                 out->disable_active_migration = true;
                 break;
             case QL_TP_STATELESS_RESET_TOKEN:
-                if (tp_len != QL_RESET_TOKEN_LEN) return QLITE_ERR_PROTO;
+                if (tp_len != QL_RESET_TOKEN_LEN) {
+                    return QLITE_ERR_PROTO;
+                }
                 memcpy(out->stateless_reset_token.data, buf + pos, QL_RESET_TOKEN_LEN);
                 out->has_stateless_reset_token = true;
                 break;
             case QL_TP_ORIGINAL_DST_CID:
-                if (tp_len > QL_CID_MAX_LEN) return QLITE_ERR_PROTO;
+                if (tp_len > QL_CID_MAX_LEN) {
+                    return QLITE_ERR_PROTO;
+                }
                 out->original_dst_cid.len = (uint8_t)tp_len;
                 memcpy(out->original_dst_cid.data, buf + pos, tp_len);
                 break;
             case QL_TP_INITIAL_SOURCE_CID:
-                if (tp_len > QL_CID_MAX_LEN) return QLITE_ERR_PROTO;
+                if (tp_len > QL_CID_MAX_LEN) {
+                    return QLITE_ERR_PROTO;
+                }
                 out->initial_src_cid.len = (uint8_t)tp_len;
                 memcpy(out->initial_src_cid.data, buf + pos, tp_len);
                 break;
             case QL_TP_RETRY_SOURCE_CID:
-                if (tp_len > QL_CID_MAX_LEN) return QLITE_ERR_PROTO;
+                if (tp_len > QL_CID_MAX_LEN) {
+                    return QLITE_ERR_PROTO;
+                }
                 out->retry_src_cid.len = (uint8_t)tp_len;
                 memcpy(out->retry_src_cid.data, buf + pos, tp_len);
                 out->has_retry_src_cid = true;
@@ -2528,18 +2771,24 @@ int ql_tp_decode(const uint8_t *buf, size_t len, ql_transport_params_t *out) {
  * the (void) return doesn't end up with a partially-random, misleading
  * CID.
  */
-void ql_cid_generate(ql_cid_t *cid, uint8_t len){
-    if (!cid || len > QL_CID_MAX_LEN) return;
+void ql_cid_generate(ql_cid_t *cid, uint8_t len) {
+    if (!cid || len > QL_CID_MAX_LEN) {
+        return;
+    }
     memset(cid->data, 0, QL_CID_MAX_LEN);
     cid->len = 0;
-    if (len == 0) return;   /* zero-length CID is valid; nothing to fill */
+    if (len == 0) {
+        return; /* zero-length CID is valid; nothing to fill */
+    }
 
     size_t filled = 0;
     while (filled < len) {
         ssize_t n = getrandom(cid->data + filled, (size_t)len - filled, 0);
         if (n < 0) {
-            if (errno == EINTR) continue;
-            return;   /* leave cid zeroed/len=0 on hard failure */
+            if (errno == EINTR) {
+                continue;
+            }
+            return; /* leave cid zeroed/len=0 on hard failure */
         }
         filled += (size_t)n;
     }
@@ -2553,9 +2802,13 @@ void ql_cid_generate(ql_cid_t *cid, uint8_t len){
  * comparison itself does not short-circuit, so it doesn't leak which
  * byte differed via timing.
  */
-int ql_cid_cmp(const ql_cid_t *a, const ql_cid_t *b){
-    if (!a || !b) return 1;
-    if (a->len != b->len) return 1;
+int ql_cid_cmp(const ql_cid_t *a, const ql_cid_t *b) {
+    if (!a || !b) {
+        return 1;
+    }
+    if (a->len != b->len) {
+        return 1;
+    }
 
     uint8_t diff = 0;
     for (uint8_t i = 0; i < a->len; i++) {
@@ -2575,14 +2828,16 @@ int ql_cid_cmp(const ql_cid_t *a, const ql_cid_t *b){
  *
  * Returns 0 on success, <0 (QLITE_ERR_*) on failure.
  */
-int ql_conn_init(ql_conn_t *conn, ql_role_t role, const ql_config_t *cfg){
-    if(!conn || !cfg) return QLITE_ERR_ARGS;
+int ql_conn_init(ql_conn_t *conn, ql_role_t role, const ql_config_t *cfg) {
+    if (!conn || !cfg) {
+        return QLITE_ERR_ARGS;
+    }
     memset(conn, 0, sizeof(*conn));
 
     conn->state = QL_CONN_IDLE;
-    conn->role = role;
-    conn->cfg = *cfg; /* struct copy: params + callbacks + tuning */
-    conn->fd = -1; /* no socket bound yet */
+    conn->role  = role;
+    conn->cfg   = *cfg; /* struct copy: params + callbacks + tuning */
+    conn->fd    = -1;   /* no socket bound yet */
 
     /* Local transport parameters start as what the caller configured;
      * remote_tp is filled in once the peer's TP arrive over TLS. */
@@ -2591,15 +2846,17 @@ int ql_conn_init(ql_conn_t *conn, ql_role_t role, const ql_config_t *cfg){
     /* 5.1 — generate our initial source connection ID and register it
      * as the first (active) entry in the local CID table. */
     ql_cid_generate(&conn->local_cid, QL_CID_MAX_LEN);
-    if (conn->local_cid.len == 0) return QLITE_ERR_INTERNAL;  /* RNG failed */
+    if (conn->local_cid.len == 0) {
+        return QLITE_ERR_INTERNAL; /* RNG failed */
+    }
 
-    conn->local_cids[0].cid            = conn->local_cid;
-    conn->local_cids[0].sequence_num   = 0;
+    conn->local_cids[0].cid             = conn->local_cid;
+    conn->local_cids[0].sequence_num    = 0;
     conn->local_cids[0].retire_prior_to = 0;
     conn->local_cids[0].is_active       = true;
     conn->local_cids[0].is_retired      = false;
-    conn->local_cid_count = 1;
-    conn->next_cid_seq    = 1;   /* next CID we issue will be seq 1 */
+    conn->local_cid_count               = 1;
+    conn->next_cid_seq                  = 1; /* next CID we issue will be seq 1 */
 
     /* 2.1 — next stream IDs to allocate, one counter per (initiator, dir).
      * Stream ID low bits: bit0 = initiator (0=client,1=server), bit1 = dir. */
@@ -2619,18 +2876,22 @@ int ql_conn_init(ql_conn_t *conn, ql_role_t role, const ql_config_t *cfg){
      * initcwnd = min(10*max_datagram_size, max(2*max_datagram_size, 14720)),
      * computed here using the conservative default MTU since the real
      * path MTU isn't known before the handshake starts. */
-    uint64_t mtu = QL_PATH_MTU_DEFAULT;
+    uint64_t mtu      = QL_PATH_MTU_DEFAULT;
     uint64_t initcwnd = 10 * mtu;
-    if (initcwnd > 14720) initcwnd = 14720;
-    if (initcwnd < 2 * mtu) initcwnd = 2 * mtu;
+    if (initcwnd > 14720) {
+        initcwnd = 14720;
+    }
+    if (initcwnd < 2 * mtu) {
+        initcwnd = 2 * mtu;
+    }
 
-    conn->cc.state           = QL_CC_SLOW_START;
-    conn->cc.cwnd            = initcwnd;
-    conn->cc.ssthresh        = UINT64_MAX;   /* 7.2: no limit until first loss */
-    conn->cc.bytes_in_flight = 0;
-    conn->cc.min_rtt_us      = UINT64_MAX;   /* 5.2: unset until first sample */
+    conn->cc.state            = QL_CC_SLOW_START;
+    conn->cc.cwnd             = initcwnd;
+    conn->cc.ssthresh         = UINT64_MAX; /* 7.2: no limit until first loss */
+    conn->cc.bytes_in_flight  = 0;
+    conn->cc.min_rtt_us       = UINT64_MAX; /* 5.2: unset until first sample */
     conn->cc.rtt_sample_taken = false;
-    conn->cc.pto_count       = 0;
+    conn->cc.pto_count        = 0;
 
     conn->sent_pkt_head = conn->sent_pkt_tail = conn->sent_pkt_count = 0;
 
@@ -2641,22 +2902,30 @@ int ql_conn_init(ql_conn_t *conn, ql_role_t role, const ql_config_t *cfg){
  * packet-protection keys per RFC 9001 §5.1. `cipher` tells us the AEAD
  * (hence key_len) and hash (for HKDF) in use — AES-128-GCM/SHA-256 for
  * TLS_AES_128_GCM_SHA256, etc. */
-static int derive_ql_keys(const SSL_CIPHER *cipher,
-                           const uint8_t *secret, size_t secret_len,
-                           ql_keys_t *out)
-{
-    const EVP_MD *md = EVP_sha256();  /* default; widen below for SHA-384 suite */
+static int derive_ql_keys(const SSL_CIPHER *cipher, const uint8_t *secret, size_t secret_len,
+                          ql_keys_t *out) {
+    const EVP_MD *md = EVP_sha256(); /* default; widen below for SHA-384 suite */
     size_t key_len = 16, iv_len = 12, hp_len = 16;
 
     uint32_t id = SSL_CIPHER_get_id(cipher) & 0xFFFF;
     /* TLS_AES_256_GCM_SHA384 = 0x1302, TLS_CHACHA20_POLY1305_SHA256 = 0x1303 */
-    if (id == 0x1302) { md = EVP_sha384(); key_len = 32; }
-    else if (id == 0x1303) { key_len = 32; }
+    if (id == 0x1302) {
+        md      = EVP_sha384();
+        key_len = 32;
+    } else if (id == 0x1303) {
+        key_len = 32;
+    }
     /* else: TLS_AES_128_GCM_SHA256 = 0x1301 -> defaults above */
 
-    if (hkdf_expand_label(md, secret, secret_len, "quic key", out->key, key_len) != 0) return -1;
-    if (hkdf_expand_label(md, secret, secret_len, "quic iv",  out->iv,  iv_len)  != 0) return -1;
-    if (hkdf_expand_label(md, secret, secret_len, "quic hp",  out->hp,  hp_len)  != 0) return -1;
+    if (hkdf_expand_label(md, secret, secret_len, "quic key", out->key, key_len) != 0) {
+        return -1;
+    }
+    if (hkdf_expand_label(md, secret, secret_len, "quic iv", out->iv, iv_len) != 0) {
+        return -1;
+    }
+    if (hkdf_expand_label(md, secret, secret_len, "quic hp", out->hp, hp_len) != 0) {
+        return -1;
+    }
 
     out->key_len = (uint8_t)key_len;
     out->iv_len  = (uint8_t)iv_len;
@@ -2666,54 +2935,87 @@ static int derive_ql_keys(const SSL_CIPHER *cipher,
 }
 
 /* RFC 9001 §5.2 — fixed salt for QUIC v1 Initial secret derivation. */
-static const uint8_t QL_INITIAL_SALT_V1[20] = {
-    0x38, 0x76, 0x2c, 0xf7, 0xf5, 0x59, 0x34, 0xb3, 0x4d, 0x17,
-    0x9a, 0xe6, 0xa4, 0xc8, 0x0c, 0xad, 0xcc, 0xbb, 0x7f, 0x0a
-};
+static const uint8_t QL_INITIAL_SALT_V1[20] = {0x38, 0x76, 0x2c, 0xf7, 0xf5, 0x59, 0x34,
+                                               0xb3, 0x4d, 0x17, 0x9a, 0xe6, 0xa4, 0xc8,
+                                               0x0c, 0xad, 0xcc, 0xbb, 0x7f, 0x0a};
 
 /* Initial secrets never come through cb_set_encryption_secrets (RFC 9001
  * §5.2: "The secrets for the Initial encryption level are computed based
  * on the client's initial Destination Connection ID" -- independent of
  * the TLS key schedule). Always AEAD_AES_128_GCM_SHA256, per spec. */
-static int derive_initial_keys(const uint8_t *dcid, size_t dcid_len,
-                                ql_role_t role, ql_key_pair_t *out)
-{
+static int derive_initial_keys(const uint8_t *dcid, size_t dcid_len, ql_role_t role,
+                               ql_key_pair_t *out) {
     const EVP_MD *md = EVP_sha256();
     uint8_t initial_secret[EVP_MAX_MD_SIZE];
 
     EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new_from_name(NULL, "HKDF", NULL);
-    if (!pctx) return -1;
+    if (!pctx) {
+        return -1;
+    }
     int rc = -1;
-    if (EVP_PKEY_derive_init(pctx) <= 0) goto out;
-    if (EVP_PKEY_CTX_hkdf_mode(pctx, EVP_PKEY_HKDEF_MODE_EXTRACT_ONLY) <= 0) goto out;
-    if (EVP_PKEY_CTX_set_hkdf_md(pctx, md) <= 0) goto out;
-    if (EVP_PKEY_CTX_set1_hkdf_salt(pctx, QL_INITIAL_SALT_V1, sizeof(QL_INITIAL_SALT_V1)) <= 0) goto out;
-    if (EVP_PKEY_CTX_set1_hkdf_key(pctx, dcid, (int)dcid_len) <= 0) goto out;
+    if (EVP_PKEY_derive_init(pctx) <= 0) {
+        goto out;
+    }
+    if (EVP_PKEY_CTX_hkdf_mode(pctx, EVP_PKEY_HKDEF_MODE_EXTRACT_ONLY) <= 0) {
+        goto out;
+    }
+    if (EVP_PKEY_CTX_set_hkdf_md(pctx, md) <= 0) {
+        goto out;
+    }
+    if (EVP_PKEY_CTX_set1_hkdf_salt(pctx, QL_INITIAL_SALT_V1, sizeof(QL_INITIAL_SALT_V1)) <= 0) {
+        goto out;
+    }
+    if (EVP_PKEY_CTX_set1_hkdf_key(pctx, dcid, (int)dcid_len) <= 0) {
+        goto out;
+    }
     {
         size_t outl = sizeof(initial_secret);
-        if (EVP_PKEY_derive(pctx, initial_secret, &outl) <= 0) goto out;
+        if (EVP_PKEY_derive(pctx, initial_secret, &outl) <= 0) {
+            goto out;
+        }
     }
 
     {
         uint8_t client_secret[32], server_secret[32];
-        if (hkdf_expand_label(md, initial_secret, EVP_MD_size(md), "client in", client_secret, 32) != 0) goto out;
-        if (hkdf_expand_label(md, initial_secret, EVP_MD_size(md), "server in", server_secret, 32) != 0) goto out;
+        if (hkdf_expand_label(md, initial_secret, EVP_MD_size(md), "client in", client_secret,
+                              32) != 0) {
+            goto out;
+        }
+        if (hkdf_expand_label(md, initial_secret, EVP_MD_size(md), "server in", server_secret,
+                              32) != 0) {
+            goto out;
+        }
 
         const uint8_t *my_secret   = (role == QL_ROLE_CLIENT) ? client_secret : server_secret;
         const uint8_t *peer_secret = (role == QL_ROLE_CLIENT) ? server_secret : client_secret;
 
-        ql_keys_t *my_write = (role == QL_ROLE_CLIENT) ? &out->write : &out->write;
-        (void)my_write;
+        if (hkdf_expand_label(md, my_secret, 32, "quic key", out->write.key, 16) != 0) {
+            goto out;
+        }
+        if (hkdf_expand_label(md, my_secret, 32, "quic iv", out->write.iv, 12) != 0) {
+            goto out;
+        }
+        if (hkdf_expand_label(md, my_secret, 32, "quic hp", out->write.hp, 16) != 0) {
+            goto out;
+        }
+        out->write.key_len = 16;
+        out->write.iv_len  = 12;
+        out->write.hp_len  = 16;
+        out->write.is_set  = true;
 
-        if (hkdf_expand_label(md, my_secret,   32, "quic key", out->write.key, 16) != 0) goto out;
-        if (hkdf_expand_label(md, my_secret,   32, "quic iv",  out->write.iv,  12) != 0) goto out;
-        if (hkdf_expand_label(md, my_secret,   32, "quic hp",  out->write.hp,  16) != 0) goto out;
-        out->write.key_len = 16; out->write.iv_len = 12; out->write.hp_len = 16; out->write.is_set = true;
-
-        if (hkdf_expand_label(md, peer_secret, 32, "quic key", out->read.key, 16) != 0) goto out;
-        if (hkdf_expand_label(md, peer_secret, 32, "quic iv",  out->read.iv,  12) != 0) goto out;
-        if (hkdf_expand_label(md, peer_secret, 32, "quic hp",  out->read.hp,  16) != 0) goto out;
-        out->read.key_len = 16; out->read.iv_len = 12; out->read.hp_len = 16; out->read.is_set = true;
+        if (hkdf_expand_label(md, peer_secret, 32, "quic key", out->read.key, 16) != 0) {
+            goto out;
+        }
+        if (hkdf_expand_label(md, peer_secret, 32, "quic iv", out->read.iv, 12) != 0) {
+            goto out;
+        }
+        if (hkdf_expand_label(md, peer_secret, 32, "quic hp", out->read.hp, 16) != 0) {
+            goto out;
+        }
+        out->read.key_len = 16;
+        out->read.iv_len  = 12;
+        out->read.hp_len  = 16;
+        out->read.is_set  = true;
     }
     rc = 0;
 out:
@@ -2733,13 +3035,13 @@ static ql_tls_backend_t *backend_of(SSL *ssl) {
 }
 
 static int cb_set_encryption_secrets(SSL *ssl, OSSL_ENCRYPTION_LEVEL level,
-                                      const uint8_t *read_secret,
-                                      const uint8_t *write_secret,
-                                      size_t secret_len)
-{
+                                     const uint8_t *read_secret, const uint8_t *write_secret,
+                                     size_t secret_len) {
     ql_tls_backend_t *be = backend_of(ssl);
-    ql_enc_level_t l = map_from_ossl(level);
-    if (secret_len > QL_SECRET_MAX_LEN) return 0;
+    ql_enc_level_t l     = map_from_ossl(level);
+    if (secret_len > QL_SECRET_MAX_LEN) {
+        return 0;
+    }
 
     /* quictls doesn't hand us the cipher directly here (unlike the old
      * 5-callback BoringSSL codepoint qlite.h was originally written
@@ -2763,17 +3065,20 @@ static int cb_set_encryption_secrets(SSL *ssl, OSSL_ENCRYPTION_LEVEL level,
     return 1;
 }
 
-static int cb_add_handshake_data(SSL *ssl, OSSL_ENCRYPTION_LEVEL level,
-                                  const uint8_t *data, size_t len)
-{
+static int cb_add_handshake_data(SSL *ssl, OSSL_ENCRYPTION_LEVEL level, const uint8_t *data,
+                                 size_t len) {
     ql_tls_backend_t *be = backend_of(ssl);
-    ql_tls_outbuf_t *ob = &be->out[map_from_ossl(level)];
+    ql_tls_outbuf_t *ob  = &be->out[map_from_ossl(level)];
 
     if (ob->len + len > ob->cap) {
         size_t new_cap = (ob->cap ? ob->cap * 2 : 4096);
-        while (new_cap < ob->len + len) new_cap *= 2;
+        while (new_cap < ob->len + len) {
+            new_cap *= 2;
+        }
         uint8_t *nb = realloc(ob->buf, new_cap);
-        if (!nb) return 0;
+        if (!nb) {
+            return 0;
+        }
         ob->buf = nb;
         ob->cap = new_cap;
     }
@@ -2782,11 +3087,14 @@ static int cb_add_handshake_data(SSL *ssl, OSSL_ENCRYPTION_LEVEL level,
     return 1;
 }
 
-static int cb_flush_flight(SSL *ssl) { (void)ssl; return 1; /* no-op: we're not doing our own I/O buffering here */ }
+static int cb_flush_flight(SSL *ssl) {
+    (void)ssl;
+    return 1; /* no-op: we're not doing our own I/O buffering here */
+}
 
-static int cb_send_alert(SSL *ssl, OSSL_ENCRYPTION_LEVEL level, uint8_t alert)
-{
-    (void)ssl; (void)level;
+static int cb_send_alert(SSL *ssl, OSSL_ENCRYPTION_LEVEL level, uint8_t alert) {
+    (void)ssl;
+    (void)level;
     /* Surface as a fatal error; caller's ql_tls_is_done / next provide_data
      * call will observe SSL_get_error() == SSL_ERROR_SSL and treat it as
      * QL_ERR_CRYPTO_ERROR_BASE + alert (§20.1). Nothing to buffer here. */
@@ -2803,13 +3111,12 @@ static int cb_send_alert(SSL *ssl, OSSL_ENCRYPTION_LEVEL level, uint8_t alert)
  * public api the rest of qlite actually call.
  */
 
-static int impl_provide_data(void *tls_ctx, ql_enc_level_t level,
-                              const uint8_t *data, size_t len)
-{
+static int impl_provide_data(void *tls_ctx, ql_enc_level_t level, const uint8_t *data, size_t len) {
     ql_tls_backend_t *be = (ql_tls_backend_t *)tls_ctx;
 
-    if (SSL_provide_quic_data(be->ssl, map_to_ossl(level), data, len) != 1)
+    if (SSL_provide_quic_data(be->ssl, map_to_ossl(level), data, len) != 1) {
         return -1;
+    }
 
     /* Drive the state machine forward. In_init lets us call this safely
      * both pre- and post-handshake-completion (post-handshake messages,
@@ -2817,56 +3124,59 @@ static int impl_provide_data(void *tls_ctx, ql_enc_level_t level,
     int rc = SSL_do_handshake(be->ssl);
     if (rc != 1) {
         int err = SSL_get_error(be->ssl, rc);
-        if (err != SSL_ERROR_WANT_READ && err != SSL_ERROR_WANT_WRITE)
-            return -1;   /* genuine fatal error, e.g. bad Finished */
+        if (err != SSL_ERROR_WANT_READ && err != SSL_ERROR_WANT_WRITE) {
+            return -1; /* genuine fatal error, e.g. bad Finished */
+        }
     }
     return 0;
 }
 
-static int impl_get_data(void *tls_ctx, ql_enc_level_t level,
-                          uint8_t *buf, size_t cap)
-{
+static int impl_get_data(void *tls_ctx, ql_enc_level_t level, uint8_t *buf, size_t cap) {
     ql_tls_backend_t *be = (ql_tls_backend_t *)tls_ctx;
-    ql_tls_outbuf_t *ob = &be->out[level];
+    ql_tls_outbuf_t *ob  = &be->out[level];
 
     size_t avail = ob->len - ob->read_off;
-    size_t n = avail < cap ? avail : cap;
-    if (n == 0) return 0;
+    size_t n     = avail < cap ? avail : cap;
+    if (n == 0) {
+        return 0;
+    }
 
     memcpy(buf, ob->buf + ob->read_off, n);
     ob->read_off += n;
 
     /* Reclaim space once fully drained so the buffer doesn't grow unbounded
      * across a long connection with repeated key updates / post-hs msgs. */
-    if (ob->read_off == ob->len) { ob->len = 0; ob->read_off = 0; }
+    if (ob->read_off == ob->len) {
+        ob->len      = 0;
+        ob->read_off = 0;
+    }
 
     return (int)n;
 }
 
-static int impl_set_keys(void *tls_ctx, ql_enc_level_t level, ql_key_pair_t *keys_out)
-{
+static int impl_set_keys(void *tls_ctx, ql_enc_level_t level, ql_key_pair_t *keys_out) {
     ql_tls_backend_t *be = (ql_tls_backend_t *)tls_ctx;
-    int rc = 0;
+    int rc               = 0;
 
     if (level == QL_ENC_LEVEL_INITIAL) {
         *keys_out = be->initial_keys;
         return be->initial_keys.read.is_set && be->initial_keys.write.is_set ? 0 : -1;
     }
-    
+
     if (be->pending[level].read_pending) {
-        const SSL_CIPHER *c = SSL_CIPHER_find(be->ssl, (const uint8_t[]){
-            (uint8_t)(be->pending[level].cipher_id >> 8),
-            (uint8_t)(be->pending[level].cipher_id & 0xFF) });
-        rc |= derive_ql_keys(c, be->pending[level].read_secret,
-                              be->pending[level].read_secret_len, &keys_out->read);
+        const SSL_CIPHER *c = SSL_CIPHER_find(
+            be->ssl, (const uint8_t[]){(uint8_t)(be->pending[level].cipher_id >> 8),
+                                       (uint8_t)(be->pending[level].cipher_id & 0xFF)});
+        rc |= derive_ql_keys(c, be->pending[level].read_secret, be->pending[level].read_secret_len,
+                             &keys_out->read);
         be->pending[level].read_pending = false;
     }
     if (be->pending[level].write_pending) {
-        const SSL_CIPHER *c = SSL_CIPHER_find(be->ssl, (const uint8_t[]){
-            (uint8_t)(be->pending[level].cipher_id >> 8),
-            (uint8_t)(be->pending[level].cipher_id & 0xFF) });
+        const SSL_CIPHER *c = SSL_CIPHER_find(
+            be->ssl, (const uint8_t[]){(uint8_t)(be->pending[level].cipher_id >> 8),
+                                       (uint8_t)(be->pending[level].cipher_id & 0xFF)});
         rc |= derive_ql_keys(c, be->pending[level].write_secret,
-                              be->pending[level].write_secret_len, &keys_out->write);
+                             be->pending[level].write_secret_len, &keys_out->write);
         be->pending[level].write_pending = false;
     }
     return rc == 0 ? 0 : -1;
@@ -2878,10 +3188,13 @@ static bool impl_is_done(void *tls_ctx) {
 }
 
 static const char *impl_get_alpn(void *tls_ctx) {
-    ql_tls_backend_t *be = (ql_tls_backend_t *)tls_ctx;
-    const uint8_t *proto = NULL; unsigned int proto_len = 0;
+    ql_tls_backend_t *be   = (ql_tls_backend_t *)tls_ctx;
+    const uint8_t *proto   = NULL;
+    unsigned int proto_len = 0;
     SSL_get0_alpn_selected(be->ssl, &proto, &proto_len);
-    if (!proto || proto_len == 0) return NULL;
+    if (!proto || proto_len == 0) {
+        return NULL;
+    }
     /* NB: caller must treat as non-null-terminated if you need exact length;
      * for typical single-ALPN use this is fine as a C string in practice
      * because OpenSSL's internal storage happens to be part of a larger
@@ -2891,17 +3204,22 @@ static const char *impl_get_alpn(void *tls_ctx) {
 
 static int impl_set_tp(void *tls_ctx, const uint8_t *tp_buf, size_t tp_len) {
     ql_tls_backend_t *be = (ql_tls_backend_t *)tls_ctx;
-    if (tp_len > sizeof(be->local_tp)) return -1;
+    if (tp_len > sizeof(be->local_tp)) {
+        return -1;
+    }
     memcpy(be->local_tp, tp_buf, tp_len);
     be->local_tp_len = tp_len;
     return SSL_set_quic_transport_params(be->ssl, be->local_tp, be->local_tp_len) == 1 ? 0 : -1;
 }
 
 static int impl_get_peer_tp(void *tls_ctx, uint8_t *tp_buf, size_t cap) {
-    ql_tls_backend_t *be = (ql_tls_backend_t *)tls_ctx;
-    const uint8_t *peer_tp = NULL; size_t peer_tp_len = 0;
+    ql_tls_backend_t *be   = (ql_tls_backend_t *)tls_ctx;
+    const uint8_t *peer_tp = NULL;
+    size_t peer_tp_len     = 0;
     SSL_get_peer_quic_transport_params(be->ssl, &peer_tp, &peer_tp_len);
-    if (!peer_tp || peer_tp_len > cap) return -1;
+    if (!peer_tp || peer_tp_len > cap) {
+        return -1;
+    }
     memcpy(tp_buf, peer_tp, peer_tp_len);
     return (int)peer_tp_len;
 }
@@ -2912,15 +3230,22 @@ static int impl_get_peer_tp(void *tls_ctx, uint8_t *tp_buf, size_t cap) {
  * (min/max version pinned to TLS 1.3, cert/key loaded for server role,
  * verification mode set, etc.) — qlite doesn't own certificate policy.
  * ------------------------------------------------------------------------- */
-int ql_tls_init(ql_tls_t *tls, void *ssl_ctx, ql_role_t role,
-                 const uint8_t *client_dcid, size_t client_dcid_len){
-    if (!tls || !ssl_ctx || !client_dcid) return -1;
+int ql_tls_init(ql_tls_t *tls, void *ssl_ctx, ql_role_t role, const uint8_t *client_dcid,
+                size_t client_dcid_len) {
+    if (!tls || !ssl_ctx || !client_dcid) {
+        return -1;
+    }
 
     ql_tls_backend_t *be = calloc(1, sizeof(*be));
-    if (!be) return -1;
+    if (!be) {
+        return -1;
+    }
 
     be->ssl = SSL_new((SSL_CTX *)ssl_ctx);
-    if (!be->ssl) { free(be); return -1; }
+    if (!be->ssl) {
+        free(be);
+        return -1;
+    }
 
     be->role = role;
     SSL_set_app_data(be->ssl, be);
@@ -2932,10 +3257,13 @@ int ql_tls_init(ql_tls_t *tls, void *ssl_ctx, ql_role_t role,
         return -1;
     }
 
-    if (role == QL_ROLE_CLIENT) SSL_set_connect_state(be->ssl);
-    else                        SSL_set_accept_state(be->ssl);
+    if (role == QL_ROLE_CLIENT) {
+        SSL_set_connect_state(be->ssl);
+    } else {
+        SSL_set_accept_state(be->ssl);
+    }
 
-    tls->tls_ctx     = be;
+    tls->tls_ctx      = be;
     tls->provide_data = impl_provide_data;
     tls->get_data     = impl_get_data;
     tls->set_keys     = impl_set_keys;
@@ -2947,12 +3275,15 @@ int ql_tls_init(ql_tls_t *tls, void *ssl_ctx, ql_role_t role,
     return 0;
 }
 
-void ql_tls_free(ql_tls_t *tls)
-{
-    if (!tls || !tls->tls_ctx) return;
+void ql_tls_free(ql_tls_t *tls) {
+    if (!tls || !tls->tls_ctx) {
+        return;
+    }
     ql_tls_backend_t *be = (ql_tls_backend_t *)tls->tls_ctx;
     SSL_free(be->ssl);
-    for (int i = 0; i < QL_ENC_LEVEL_COUNT; i++) free(be->out[i].buf);
+    for (int i = 0; i < QL_ENC_LEVEL_COUNT; i++) {
+        free(be->out[i].buf);
+    }
     free(be);
     tls->tls_ctx = NULL;
 }
@@ -2962,26 +3293,19 @@ void ql_tls_free(ql_tls_t *tls)
  * call. They don't know anything about OpenSSL; they just forward through
  * whatever ql_tls_init wired up above.
  * ------------------------------------------------------------------------- */
-int ql_tls_provide_data(ql_tls_t *tls, ql_enc_level_t level,
-                         const uint8_t *data, size_t len)
-{
+int ql_tls_provide_data(ql_tls_t *tls, ql_enc_level_t level, const uint8_t *data, size_t len) {
     return tls->provide_data(tls->tls_ctx, level, data, len);
 }
 
-int ql_tls_get_data(ql_tls_t *tls, ql_enc_level_t level,
-                     uint8_t *buf, size_t cap)
-{
+int ql_tls_get_data(ql_tls_t *tls, ql_enc_level_t level, uint8_t *buf, size_t cap) {
     return tls->get_data(tls->tls_ctx, level, buf, cap);
 }
 
-int ql_tls_install_keys(ql_tls_t *tls, ql_enc_level_t level,
-                         ql_key_pair_t *keys_out)
-{
+int ql_tls_install_keys(ql_tls_t *tls, ql_enc_level_t level, ql_key_pair_t *keys_out) {
     return tls->set_keys(tls->tls_ctx, level, keys_out);
 }
 
-bool ql_tls_handshake_done(const ql_tls_t *tls)
-{
+bool ql_tls_handshake_done(const ql_tls_t *tls) {
     return tls->is_done(tls->tls_ctx);
 }
 

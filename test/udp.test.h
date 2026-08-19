@@ -8,12 +8,11 @@
  * Small helper: build a loopback sockaddr_in for a given port.
  * just shared setup used by the tests below
  * ------------------------------------------------------------------- */
-static struct sockaddr_in loopback_addr(uint16_t port)
-{
+static struct sockaddr_in loopback_addr(uint16_t port) {
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
-    addr.sin_family = AF_INET;
-    addr.sin_port   = htons(port);
+    addr.sin_family      = AF_INET;
+    addr.sin_port        = htons(port);
     addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     return addr;
 }
@@ -36,7 +35,7 @@ TEST(test_udp_socket_bind_specific_loopback) {
 
     struct sockaddr_in bound;
     socklen_t len = sizeof(bound);
-    int rc = getsockname(fd, (struct sockaddr *)&bound, &len);
+    int rc        = getsockname(fd, (struct sockaddr *)&bound, &len);
     EXPECT_EQ(rc, 0);
     EXPECT_EQ(bound.sin_addr.s_addr, htonl(INADDR_LOOPBACK));
     EXPECT_NE(bound.sin_port, 0); /* kernel must have assigned one */
@@ -130,8 +129,8 @@ TEST(test_udp_send_rejects_zero_len) {
     EXPECT_GE(fd, 0);
 
     struct sockaddr_in dst = loopback_addr(9999);
-    uint8_t byte = 0x42;
-    int n = ql_udp_send(fd, (struct sockaddr *)&dst, sizeof(dst), &byte, 0);
+    uint8_t byte           = 0x42;
+    int n                  = ql_udp_send(fd, (struct sockaddr *)&dst, sizeof(dst), &byte, 0);
     EXPECT_EQ(n, QLITE_ERR_ARGS);
 
     close(fd);
@@ -141,7 +140,7 @@ TEST(test_udp_send_returns_full_length_on_success) {
     /* Sending to *some* bound loopback port should succeed at the
      * sendto() level even before anyone calls recv() on the other end —
      * UDP doesn't require the receiver to be "ready". */
-    int sender_fd = ql_udp_socket("127.0.0.1", 0);
+    int sender_fd   = ql_udp_socket("127.0.0.1", 0);
     int receiver_fd = ql_udp_socket("127.0.0.1", 0);
     EXPECT_GE(sender_fd, 0);
     EXPECT_GE(receiver_fd, 0);
@@ -150,9 +149,9 @@ TEST(test_udp_send_returns_full_length_on_success) {
     socklen_t alen = sizeof(receiver_addr);
     EXPECT_EQ(getsockname(receiver_fd, (struct sockaddr *)&receiver_addr, &alen), 0);
 
-    const uint8_t payload[] = { 0xDE, 0xAD, 0xBE, 0xEF };
-    int n = ql_udp_send(sender_fd, (struct sockaddr *)&receiver_addr,
-                         sizeof(receiver_addr), payload, sizeof(payload));
+    const uint8_t payload[] = {0xDE, 0xAD, 0xBE, 0xEF};
+    int n = ql_udp_send(sender_fd, (struct sockaddr *)&receiver_addr, sizeof(receiver_addr),
+                        payload, sizeof(payload));
     EXPECT_EQ(n, (int)sizeof(payload));
 
     close(sender_fd);
@@ -171,28 +170,27 @@ TEST(test_udp_send_recv_roundtrip) {
 
     struct sockaddr_in server_addr;
     socklen_t server_addr_len = sizeof(server_addr);
-    EXPECT_EQ(getsockname(server_fd, (struct sockaddr *)&server_addr,
-                          &server_addr_len), 0);
+    EXPECT_EQ(getsockname(server_fd, (struct sockaddr *)&server_addr, &server_addr_len), 0);
 
     const uint8_t payload[] = "quic-lite chunk 1.5 roundtrip";
-    size_t payload_len = sizeof(payload) - 1; /* exclude NUL */
+    size_t payload_len      = sizeof(payload) - 1; /* exclude NUL */
 
-    int sent = ql_udp_send(client_fd, (struct sockaddr *)&server_addr,
-                            sizeof(server_addr), payload, payload_len);
+    int sent = ql_udp_send(client_fd, (struct sockaddr *)&server_addr, sizeof(server_addr), payload,
+                           payload_len);
     EXPECT_EQ(sent, (int)payload_len);
 
     /* Give the kernel a moment to make the datagram readable. On
      * loopback this is near-instant, but poll() makes it deterministic
      * instead of racy. */
-    struct pollfd pfd = { .fd = server_fd, .events = POLLIN };
-    int pr = poll(&pfd, 1, 1000);
+    struct pollfd pfd = {.fd = server_fd, .events = POLLIN};
+    int pr            = poll(&pfd, 1, 1000);
     EXPECT_EQ(pr, 1);
     EXPECT_EQ(pfd.revents & POLLIN, POLLIN);
 
     uint8_t rbuf[256];
     struct sockaddr_storage src;
     socklen_t srclen = sizeof(src);
-    int n = ql_udp_recv(server_fd, rbuf, sizeof(rbuf), &src, &srclen);
+    int n            = ql_udp_recv(server_fd, rbuf, sizeof(rbuf), &src, &srclen);
     EXPECT_EQ(n, (int)payload_len);
     EXPECT_EQ(memcmp(rbuf, payload, payload_len), 0);
 
@@ -209,23 +207,21 @@ TEST(test_udp_recv_reports_correct_source_address) {
     struct sockaddr_in server_addr, client_addr;
     socklen_t server_addr_len = sizeof(server_addr);
     socklen_t client_addr_len = sizeof(client_addr);
-    EXPECT_EQ(getsockname(server_fd, (struct sockaddr *)&server_addr,
-                          &server_addr_len), 0);
-    EXPECT_EQ(getsockname(client_fd, (struct sockaddr *)&client_addr,
-                          &client_addr_len), 0);
+    EXPECT_EQ(getsockname(server_fd, (struct sockaddr *)&server_addr, &server_addr_len), 0);
+    EXPECT_EQ(getsockname(client_fd, (struct sockaddr *)&client_addr, &client_addr_len), 0);
 
     uint8_t ping = 0x01;
-    int sent = ql_udp_send(client_fd, (struct sockaddr *)&server_addr,
-                            sizeof(server_addr), &ping, sizeof(ping));
+    int sent = ql_udp_send(client_fd, (struct sockaddr *)&server_addr, sizeof(server_addr), &ping,
+                           sizeof(ping));
     EXPECT_EQ(sent, (int)sizeof(ping));
 
-    struct pollfd pfd = { .fd = server_fd, .events = POLLIN };
+    struct pollfd pfd = {.fd = server_fd, .events = POLLIN};
     EXPECT_EQ(poll(&pfd, 1, 1000), 1);
 
     uint8_t rbuf[16];
     struct sockaddr_storage src;
     socklen_t srclen = sizeof(src);
-    int n = ql_udp_recv(server_fd, rbuf, sizeof(rbuf), &src, &srclen);
+    int n            = ql_udp_recv(server_fd, rbuf, sizeof(rbuf), &src, &srclen);
     EXPECT_EQ(n, (int)sizeof(ping));
 
     EXPECT_EQ(srclen, sizeof(struct sockaddr_in));
@@ -248,14 +244,13 @@ TEST(test_udp_recv_again_after_drain) {
 
     struct sockaddr_in server_addr;
     socklen_t server_addr_len = sizeof(server_addr);
-    EXPECT_EQ(getsockname(server_fd, (struct sockaddr *)&server_addr,
-                          &server_addr_len), 0);
+    EXPECT_EQ(getsockname(server_fd, (struct sockaddr *)&server_addr, &server_addr_len), 0);
 
     uint8_t byte = 0x07;
-    EXPECT_EQ(ql_udp_send(client_fd, (struct sockaddr *)&server_addr,
-                           sizeof(server_addr), &byte, 1), 1);
+    EXPECT_EQ(
+        ql_udp_send(client_fd, (struct sockaddr *)&server_addr, sizeof(server_addr), &byte, 1), 1);
 
-    struct pollfd pfd = { .fd = server_fd, .events = POLLIN };
+    struct pollfd pfd = {.fd = server_fd, .events = POLLIN};
     EXPECT_EQ(poll(&pfd, 1, 1000), 1);
 
     uint8_t rbuf[16];
@@ -265,7 +260,7 @@ TEST(test_udp_recv_again_after_drain) {
     int first = ql_udp_recv(server_fd, rbuf, sizeof(rbuf), &src, &srclen);
     EXPECT_EQ(first, 1);
 
-    srclen = sizeof(src);
+    srclen     = sizeof(src);
     int second = ql_udp_recv(server_fd, rbuf, sizeof(rbuf), &src, &srclen);
     EXPECT_EQ(second, QLITE_ERR_WOULDBLOCK);
 
@@ -291,7 +286,7 @@ TEST(test_now_ms_is_monotonic_nondecreasing) {
 TEST(test_now_ms_advances_after_sleep) {
     uint64_t t0 = ql_now_ms();
 
-    struct timespec ts = { .tv_sec = 0, .tv_nsec = 20 * 1000000L }; /* 20ms */
+    struct timespec ts = {.tv_sec = 0, .tv_nsec = 20 * 1000000L}; /* 20ms */
     nanosleep(&ts, NULL);
 
     uint64_t t1 = ql_now_ms();

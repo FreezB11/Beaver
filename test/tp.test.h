@@ -14,16 +14,16 @@ TEST(test_tp_roundtrip_basic) {
     ql_transport_params_t enc, dec;
     memset(&enc, 0, sizeof(enc));
 
-    enc.max_idle_timeout_ms                   = 30000;
-    enc.initial_max_data                      = 1048576;
-    enc.initial_max_stream_data_bidi_local    = 65536;
-    enc.initial_max_stream_data_bidi_remote   = 65536;
-    enc.initial_max_stream_data_uni           = 32768;
-    enc.initial_max_streams_bidi              = 100;
-    enc.initial_max_streams_uni               = 100;
-    enc.ack_delay_exponent                    = 3;
-    enc.max_ack_delay_ms                      = 25;
-    enc.active_cid_limit                      = 8;
+    enc.max_idle_timeout_ms                 = 30000;
+    enc.initial_max_data                    = 1048576;
+    enc.initial_max_stream_data_bidi_local  = 65536;
+    enc.initial_max_stream_data_bidi_remote = 65536;
+    enc.initial_max_stream_data_uni         = 32768;
+    enc.initial_max_streams_bidi            = 100;
+    enc.initial_max_streams_uni             = 100;
+    enc.ack_delay_exponent                  = 3;
+    enc.max_ack_delay_ms                    = 25;
+    enc.active_cid_limit                    = 8;
 
     int n = ql_tp_encode(&enc, buf, sizeof(buf));
     EXPECT_GT(n, 0);
@@ -31,14 +31,14 @@ TEST(test_tp_roundtrip_basic) {
     int m = ql_tp_decode(buf, (size_t)n, &dec);
     EXPECT_GT(m, 0);
 
-    EXPECT_EQ(dec.max_idle_timeout_ms,                 (uint64_t)30000);
-    EXPECT_EQ(dec.initial_max_data,                    (uint64_t)1048576);
-    EXPECT_EQ(dec.initial_max_stream_data_bidi_local,  (uint64_t)65536);
+    EXPECT_EQ(dec.max_idle_timeout_ms, (uint64_t)30000);
+    EXPECT_EQ(dec.initial_max_data, (uint64_t)1048576);
+    EXPECT_EQ(dec.initial_max_stream_data_bidi_local, (uint64_t)65536);
     EXPECT_EQ(dec.initial_max_stream_data_bidi_remote, (uint64_t)65536);
-    EXPECT_EQ(dec.initial_max_stream_data_uni,         (uint64_t)32768);
-    EXPECT_EQ(dec.initial_max_streams_bidi,            (uint64_t)100);
-    EXPECT_EQ(dec.initial_max_streams_uni,             (uint64_t)100);
-    EXPECT_EQ(dec.active_cid_limit,                    (uint64_t)8);
+    EXPECT_EQ(dec.initial_max_stream_data_uni, (uint64_t)32768);
+    EXPECT_EQ(dec.initial_max_streams_bidi, (uint64_t)100);
+    EXPECT_EQ(dec.initial_max_streams_uni, (uint64_t)100);
+    EXPECT_EQ(dec.active_cid_limit, (uint64_t)8);
 }
 
 TEST(test_tp_defaults_after_decode) {
@@ -53,9 +53,9 @@ TEST(test_tp_defaults_after_decode) {
     ql_tp_decode(buf, (size_t)n, &dec);
 
     EXPECT_EQ(dec.max_udp_payload_size, (uint64_t)QL_MAX_UDP_PAYLOAD_DEFAULT);
-    EXPECT_EQ(dec.ack_delay_exponent,   (uint64_t)QL_DEFAULT_ACK_DELAY_EXP);
-    EXPECT_EQ(dec.max_ack_delay_ms,     (uint64_t)QL_DEFAULT_MAX_ACK_DELAY_MS);
-    EXPECT_EQ(dec.active_cid_limit,     (uint64_t)QL_DEFAULT_ACTIVE_CID_LIMIT);
+    EXPECT_EQ(dec.ack_delay_exponent, (uint64_t)QL_DEFAULT_ACK_DELAY_EXP);
+    EXPECT_EQ(dec.max_ack_delay_ms, (uint64_t)QL_DEFAULT_MAX_ACK_DELAY_MS);
+    EXPECT_EQ(dec.active_cid_limit, (uint64_t)QL_DEFAULT_ACTIVE_CID_LIMIT);
 }
 
 TEST(test_tp_disable_migration) {
@@ -85,8 +85,7 @@ TEST(test_tp_stateless_reset_token) {
 
     ql_tp_decode(buf, (size_t)n, &dec);
     EXPECT_EQ(dec.has_stateless_reset_token, true);
-    EXPECT(memcmp(dec.stateless_reset_token.data,
-                  enc.stateless_reset_token.data,
+    EXPECT(memcmp(dec.stateless_reset_token.data, enc.stateless_reset_token.data,
                   QL_RESET_TOKEN_LEN) == 0);
 }
 
@@ -99,8 +98,8 @@ TEST(test_tp_cid_fields) {
     memset(enc.original_dst_cid.data, 0x11, 8);
     enc.initial_src_cid.len = 8;
     memset(enc.initial_src_cid.data, 0x22, 8);
-    enc.has_retry_src_cid   = true;
-    enc.retry_src_cid.len   = 8;
+    enc.has_retry_src_cid = true;
+    enc.retry_src_cid.len = 8;
     memset(enc.retry_src_cid.data, 0x33, 8);
 
     int n = ql_tp_encode(&enc, buf, sizeof(buf));
@@ -133,9 +132,9 @@ TEST(test_tp_invalid_payload_size) {
     size_t pos = 0;
 
     /* hand-craft: id=0x03, len=1, value=63 (below 1200) */
-    buf[pos++] = 0x03;   /* QL_TP_MAX_UDP_PAYLOAD_SIZE, 1-byte varint */
-    buf[pos++] = 0x01;   /* length = 1 */
-    buf[pos++] = 0x3F;   /* value = 63 */
+    buf[pos++] = 0x03; /* QL_TP_MAX_UDP_PAYLOAD_SIZE, 1-byte varint */
+    buf[pos++] = 0x01; /* length = 1 */
+    buf[pos++] = 0x3F; /* value = 63 */
 
     ql_transport_params_t dec;
     int m = ql_tp_decode(buf, pos, &dec);
