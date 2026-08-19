@@ -1274,11 +1274,16 @@ typedef struct {
 
     ql_tls_outbuf_t out[QL_ENC_LEVEL_COUNT];
 
-    /* Most recent secret handed to us per level/direction, staged here
-     * until ql_tls_install_keys is called and consumes it. */
+    /* Most recent secrets handed to us per level, staged here until
+     * ql_tls_install_keys is called and consumes them. Separate read/write
+     * storage: quictls delivers both directions in ONE callback at the
+     * Handshake and Application levels, so a shared buffer would clobber
+     * one direction with the other. */
     struct {
-        uint8_t  secret[QL_SECRET_MAX_LEN];
-        size_t   secret_len;
+        uint8_t  read_secret[QL_SECRET_MAX_LEN];
+        size_t   read_secret_len;
+        uint8_t  write_secret[QL_SECRET_MAX_LEN];
+        size_t   write_secret_len;
         uint32_t cipher_id;     /* SSL_CIPHER id, tells us AEAD + hash */
         bool     read_pending;
         bool     write_pending;
@@ -1315,9 +1320,19 @@ static OSSL_ENCRYPTION_LEVEL map_to_ossl(ql_enc_level_t level) {
     }
 }
 
+/* forward decls: these are defined near the bottom of the file (~line 2663),
+ * but QL_QUIC_METHOD's initializer needs them declared first. */
+static int cb_set_encryption_secrets(SSL *ssl, OSSL_ENCRYPTION_LEVEL level,
+                                      const uint8_t *read_secret,
+                                      const uint8_t *write_secret,
+                                      size_t secret_len);
+static int cb_add_handshake_data(SSL *ssl, OSSL_ENCRYPTION_LEVEL level,
+                                  const uint8_t *data, size_t len);
+static int cb_flush_flight(SSL *ssl);
+static int cb_send_alert(SSL *ssl, OSSL_ENCRYPTION_LEVEL level, uint8_t alert);
+
 static const SSL_QUIC_METHOD QL_QUIC_METHOD = {
-    cb_set_read_secret,
-    cb_set_write_secret,
+    cb_set_encryption_secrets,
     cb_add_handshake_data,
     cb_flush_flight,
     cb_send_alert,
@@ -2659,33 +2674,34 @@ static ql_tls_backend_t *backend_of(SSL *ssl) {
     return (ql_tls_backend_t *)SSL_get_app_data(ssl);
 }
 
-static int cb_set_read_secret(SSL *ssl, OSSL_ENCRYPTION_LEVEL level,
-                               const SSL_CIPHER *cipher,
-                               const uint8_t *secret, size_t secret_len)
+static int cb_set_encryption_secrets(SSL *ssl, OSSL_ENCRYPTION_LEVEL level,
+                                      const uint8_t *read_secret,
+                                      const uint8_t *write_secret,
+                                      size_t secret_len)
 {
     ql_tls_backend_t *be = backend_of(ssl);
     ql_enc_level_t l = map_from_ossl(level);
     if (secret_len > QL_SECRET_MAX_LEN) return 0;
-    memcpy(be->pending[l].secret, secret, secret_len);
-    be->pending[l].secret_len   = secret_len;
-    be->pending[l].cipher_id    = SSL_CIPHER_get_id(cipher);
-    be->pending[l].read_pending = true;
-    return 1;
-}
 
-static int cb_set_write_secret(SSL *ssl, OSSL_ENCRYPTION_LEVEL level,
-                                const SSL_CIPHER *cipher,
-                                const uint8_t *secret, size_t secret_len)
-{
-    ql_tls_backend_t *be = backend_of(ssl);
-    ql_enc_level_t l = map_from_ossl(level);
-    if (secret_len > QL_SECRET_MAX_LEN) return 0;
-    /* Same secret buffer slot is fine: read/write are derived independently
-     * by derive_ql_keys() before install_keys overwrites this slot again. */
-    memcpy(be->pending[l].secret, secret, secret_len);
-    be->pending[l].secret_len    = secret_len;
-    be->pending[l].cipher_id     = SSL_CIPHER_get_id(cipher);
-    be->pending[l].write_pending = true;
+    /* quictls doesn't hand us the cipher directly here (unlike the old
+     * 5-callback BoringSSL codepoint qlite.h was originally written
+     * against) — pull it off the connection instead. */
+    const SSL_CIPHER *cipher = SSL_get_current_cipher(ssl);
+    be->pending[l].cipher_id = cipher ? SSL_CIPHER_get_id(cipher) : 0;
+
+    /* At ssl_encryption_early_data only one of these is non-NULL; at
+     * handshake/application BOTH arrive in this single call, which is
+     * exactly why read/write need separate buffers. */
+    if (read_secret) {
+        memcpy(be->pending[l].read_secret, read_secret, secret_len);
+        be->pending[l].read_secret_len = secret_len;
+        be->pending[l].read_pending    = true;
+    }
+    if (write_secret) {
+        memcpy(be->pending[l].write_secret, write_secret, secret_len);
+        be->pending[l].write_secret_len = secret_len;
+        be->pending[l].write_pending    = true;
+    }
     return 1;
 }
 
@@ -2778,16 +2794,16 @@ static int impl_set_keys(void *tls_ctx, ql_enc_level_t level, ql_key_pair_t *key
         const SSL_CIPHER *c = SSL_CIPHER_find(be->ssl, (const uint8_t[]){
             (uint8_t)(be->pending[level].cipher_id >> 8),
             (uint8_t)(be->pending[level].cipher_id & 0xFF) });
-        rc |= derive_ql_keys(c, be->pending[level].secret,
-                              be->pending[level].secret_len, &keys_out->read);
+        rc |= derive_ql_keys(c, be->pending[level].read_secret,
+                              be->pending[level].read_secret_len, &keys_out->read);
         be->pending[level].read_pending = false;
     }
     if (be->pending[level].write_pending) {
         const SSL_CIPHER *c = SSL_CIPHER_find(be->ssl, (const uint8_t[]){
             (uint8_t)(be->pending[level].cipher_id >> 8),
             (uint8_t)(be->pending[level].cipher_id & 0xFF) });
-        rc |= derive_ql_keys(c, be->pending[level].secret,
-                              be->pending[level].secret_len, &keys_out->write);
+        rc |= derive_ql_keys(c, be->pending[level].write_secret,
+                              be->pending[level].write_secret_len, &keys_out->write);
         be->pending[level].write_pending = false;
     }
     return rc == 0 ? 0 : -1;
