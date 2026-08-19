@@ -1293,6 +1293,8 @@ typedef struct {
      * OpenSSL pulls them during the handshake. */
     uint8_t  local_tp[1024];
     size_t   local_tp_len;
+
+    ql_key_pair_t initial_keys; /* derived at init time from client DCID (RFC 9001 5.2) */
 } ql_tls_backend_t;
 
 /* -------------------------------------------------------------------------
@@ -2663,6 +2665,62 @@ static int derive_ql_keys(const SSL_CIPHER *cipher,
     return 0;
 }
 
+/* RFC 9001 §5.2 — fixed salt for QUIC v1 Initial secret derivation. */
+static const uint8_t QL_INITIAL_SALT_V1[20] = {
+    0x38, 0x76, 0x2c, 0xf7, 0xf5, 0x59, 0x34, 0xb3, 0x4d, 0x17,
+    0x9a, 0xe6, 0xa4, 0xc8, 0x0c, 0xad, 0xcc, 0xbb, 0x7f, 0x0a
+};
+
+/* Initial secrets never come through cb_set_encryption_secrets (RFC 9001
+ * §5.2: "The secrets for the Initial encryption level are computed based
+ * on the client's initial Destination Connection ID" -- independent of
+ * the TLS key schedule). Always AEAD_AES_128_GCM_SHA256, per spec. */
+static int derive_initial_keys(const uint8_t *dcid, size_t dcid_len,
+                                ql_role_t role, ql_key_pair_t *out)
+{
+    const EVP_MD *md = EVP_sha256();
+    uint8_t initial_secret[EVP_MAX_MD_SIZE];
+
+    EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new_from_name(NULL, "HKDF", NULL);
+    if (!pctx) return -1;
+    int rc = -1;
+    if (EVP_PKEY_derive_init(pctx) <= 0) goto out;
+    if (EVP_PKEY_CTX_hkdf_mode(pctx, EVP_PKEY_HKDEF_MODE_EXTRACT_ONLY) <= 0) goto out;
+    if (EVP_PKEY_CTX_set_hkdf_md(pctx, md) <= 0) goto out;
+    if (EVP_PKEY_CTX_set1_hkdf_salt(pctx, QL_INITIAL_SALT_V1, sizeof(QL_INITIAL_SALT_V1)) <= 0) goto out;
+    if (EVP_PKEY_CTX_set1_hkdf_key(pctx, dcid, (int)dcid_len) <= 0) goto out;
+    {
+        size_t outl = sizeof(initial_secret);
+        if (EVP_PKEY_derive(pctx, initial_secret, &outl) <= 0) goto out;
+    }
+
+    {
+        uint8_t client_secret[32], server_secret[32];
+        if (hkdf_expand_label(md, initial_secret, EVP_MD_size(md), "client in", client_secret, 32) != 0) goto out;
+        if (hkdf_expand_label(md, initial_secret, EVP_MD_size(md), "server in", server_secret, 32) != 0) goto out;
+
+        const uint8_t *my_secret   = (role == QL_ROLE_CLIENT) ? client_secret : server_secret;
+        const uint8_t *peer_secret = (role == QL_ROLE_CLIENT) ? server_secret : client_secret;
+
+        ql_keys_t *my_write = (role == QL_ROLE_CLIENT) ? &out->write : &out->write;
+        (void)my_write;
+
+        if (hkdf_expand_label(md, my_secret,   32, "quic key", out->write.key, 16) != 0) goto out;
+        if (hkdf_expand_label(md, my_secret,   32, "quic iv",  out->write.iv,  12) != 0) goto out;
+        if (hkdf_expand_label(md, my_secret,   32, "quic hp",  out->write.hp,  16) != 0) goto out;
+        out->write.key_len = 16; out->write.iv_len = 12; out->write.hp_len = 16; out->write.is_set = true;
+
+        if (hkdf_expand_label(md, peer_secret, 32, "quic key", out->read.key, 16) != 0) goto out;
+        if (hkdf_expand_label(md, peer_secret, 32, "quic iv",  out->read.iv,  12) != 0) goto out;
+        if (hkdf_expand_label(md, peer_secret, 32, "quic hp",  out->read.hp,  16) != 0) goto out;
+        out->read.key_len = 16; out->read.iv_len = 12; out->read.hp_len = 16; out->read.is_set = true;
+    }
+    rc = 0;
+out:
+    EVP_PKEY_CTX_free(pctx);
+    return rc;
+}
+
 /* TLS*/
 /* -------------------------------------------------------------------------
  * SSL_QUIC_METHOD callbacks — OpenSSL calls these DURING SSL_do_handshake().
@@ -2790,6 +2848,11 @@ static int impl_set_keys(void *tls_ctx, ql_enc_level_t level, ql_key_pair_t *key
     ql_tls_backend_t *be = (ql_tls_backend_t *)tls_ctx;
     int rc = 0;
 
+    if (level == QL_ENC_LEVEL_INITIAL) {
+        *keys_out = be->initial_keys;
+        return be->initial_keys.read.is_set && be->initial_keys.write.is_set ? 0 : -1;
+    }
+    
     if (be->pending[level].read_pending) {
         const SSL_CIPHER *c = SSL_CIPHER_find(be->ssl, (const uint8_t[]){
             (uint8_t)(be->pending[level].cipher_id >> 8),
@@ -2849,8 +2912,9 @@ static int impl_get_peer_tp(void *tls_ctx, uint8_t *tp_buf, size_t cap) {
  * (min/max version pinned to TLS 1.3, cert/key loaded for server role,
  * verification mode set, etc.) — qlite doesn't own certificate policy.
  * ------------------------------------------------------------------------- */
-int ql_tls_init(ql_tls_t *tls, void *ssl_ctx, ql_role_t role){
-    if (!tls || !ssl_ctx) return -1;
+int ql_tls_init(ql_tls_t *tls, void *ssl_ctx, ql_role_t role,
+                 const uint8_t *client_dcid, size_t client_dcid_len){
+    if (!tls || !ssl_ctx || !client_dcid) return -1;
 
     ql_tls_backend_t *be = calloc(1, sizeof(*be));
     if (!be) return -1;
@@ -2861,6 +2925,12 @@ int ql_tls_init(ql_tls_t *tls, void *ssl_ctx, ql_role_t role){
     be->role = role;
     SSL_set_app_data(be->ssl, be);
     SSL_set_quic_method(be->ssl, &QL_QUIC_METHOD);
+
+    if (derive_initial_keys(client_dcid, client_dcid_len, role, &be->initial_keys) != 0) {
+        SSL_free(be->ssl);
+        free(be);
+        return -1;
+    }
 
     if (role == QL_ROLE_CLIENT) SSL_set_connect_state(be->ssl);
     else                        SSL_set_accept_state(be->ssl);
