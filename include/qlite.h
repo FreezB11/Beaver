@@ -46,7 +46,6 @@ extern "C" {
 #include <openssl/kdf.h>
 #include <openssl/core_names.h>
 #include <openssl/err.h>
-#include <wolfssl/openssl/ssl.h>
 
 /* helpers*/
 /* Write Varint — encodes val, advances pos, returns error on overflow */
@@ -227,7 +226,7 @@ typedef struct {
     uint64_t  bytes_sent;         /* to unvalidated peer address */
 } ql_addr_valid_t;
 
-/* 
+/*
  * Transport ERR codes  20.1
  */
 typedef enum {
@@ -331,7 +330,7 @@ typedef enum {
 #define QL_DEFAULT_ACK_DELAY_EXP     3    /* 2^3 = 8 µs units */
 #define QL_DEFAULT_MAX_ACK_DELAY_MS  25
 #define QL_DEFAULT_ACTIVE_CID_LIMIT  2
-/* 
+/*
  *      TRANSPORT PARAMETERS  7.4 / 18.2
  *      Exchanged inside the TLS handshake ClientHello / EncryptedExtensions.
  */
@@ -357,10 +356,10 @@ typedef enum {
 } ql_tp_id_t;
 
 /*
-    A PADDING frame (type=0x00) has no semantic value. 
-    PADDING frames can be used to increase the size of a packet. 
-    Padding can be used to increase an Initial packet to the 
-    minimum required size or to provide protection against traffic 
+    A PADDING frame (type=0x00) has no semantic value.
+    PADDING frames can be used to increase the size of a packet.
+    Padding can be used to increase an Initial packet to the
+    minimum required size or to provide protection against traffic
     analysis for protected packets
 */
 typedef struct {
@@ -368,22 +367,22 @@ typedef struct {
 } ql_frame_padding_t;
 
 /*
-    Endpoints can use PING frames (type=0x01) to verify that their 
+    Endpoints can use PING frames (type=0x01) to verify that their
     peers are still alive or to check reachability to the peer.
 */
 typedef struct {
     uint8_t _dummy;
 } ql_frame_ping_t;
 
-/* ACK / ACK_ECN 
-    Receivers send ACK frames (types 0x02 and 0x03) to inform senders 
-    of packets they have received and processed. The ACK frame contains 
-    one or more ACK Ranges. ACK Ranges identify acknowledged packets. 
-    If the frame type is 0x03, ACK frames also contain the cumulative 
-    count of QUIC packets with associated ECN marks received on the 
-    connection up until this point. QUIC implementations MUST properly 
-    handle both types, and, if they have enabled ECN for packets they 
-    send, they SHOULD use the information in the ECN section to manage 
+/* ACK / ACK_ECN
+    Receivers send ACK frames (types 0x02 and 0x03) to inform senders
+    of packets they have received and processed. The ACK frame contains
+    one or more ACK Ranges. ACK Ranges identify acknowledged packets.
+    If the frame type is 0x03, ACK frames also contain the cumulative
+    count of QUIC packets with associated ECN marks received on the
+    connection up until this point. QUIC implementations MUST properly
+    handle both types, and, if they have enabled ECN for packets they
+    send, they SHOULD use the information in the ECN section to manage
     their congestion state.
 */
 typedef struct {
@@ -400,13 +399,13 @@ typedef struct {
 } ql_frame_ack_t;
 
 /*
-    An endpoint uses a RESET_STREAM frame (type=0x04) to abruptly 
+    An endpoint uses a RESET_STREAM frame (type=0x04) to abruptly
     terminate the sending part of a stream.
-    After sending a RESET_STREAM, an endpoint ceases transmission 
-    and retransmission of STREAM frames on the identified stream. 
-    A receiver of RESET_STREAM can discard any data that it already 
+    After sending a RESET_STREAM, an endpoint ceases transmission
+    and retransmission of STREAM frames on the identified stream.
+    A receiver of RESET_STREAM can discard any data that it already
     received on that stream.
-    An endpoint that receives a RESET_STREAM frame for a send-only 
+    An endpoint that receives a RESET_STREAM frame for a send-only
     stream MUST terminate the connection with error STREAM_STATE_ERROR.
 */
 typedef struct {
@@ -416,15 +415,15 @@ typedef struct {
 } ql_frame_reset_stream_t;
 
 /*
-    An endpoint uses a STOP_SENDING frame (type=0x05) to communicate 
-    that incoming data is being discarded on receipt per application 
-    request. STOP_SENDING requests that a peer cease transmission on 
+    An endpoint uses a STOP_SENDING frame (type=0x05) to communicate
+    that incoming data is being discarded on receipt per application
+    request. STOP_SENDING requests that a peer cease transmission on
     a stream.
-    A STOP_SENDING frame can be sent for streams in the "Recv" or 
-    "Size Known" states; see Section 3.2. Receiving a STOP_SENDING 
-    frame for a locally initiated stream that has not yet been created 
-    MUST be treated as a connection error of type STREAM_STATE_ERROR. 
-    An endpoint that receives a STOP_SENDING frame for a receive-only 
+    A STOP_SENDING frame can be sent for streams in the "Recv" or
+    "Size Known" states; see Section 3.2. Receiving a STOP_SENDING
+    frame for a locally initiated stream that has not yet been created
+    MUST be treated as a connection error of type STREAM_STATE_ERROR.
+    An endpoint that receives a STOP_SENDING frame for a receive-only
     stream MUST terminate the connection with error STREAM_STATE_ERROR.
 */
 typedef struct {
@@ -433,12 +432,12 @@ typedef struct {
 } ql_frame_stop_sending_t;
 
 /*
-    A CRYPTO frame (type=0x06) is used to transmit cryptographic handshake 
-    messages. It can be sent in all packet types except 0-RTT. The CRYPTO 
-    frame offers the cryptographic protocol an in-order stream of bytes. 
-    CRYPTO frames are functionally identical to STREAM frames, except that 
-    they do not bear a stream identifier; they are not flow controlled; 
-    and they do not carry markers for optional offset, optional length, 
+    A CRYPTO frame (type=0x06) is used to transmit cryptographic handshake
+    messages. It can be sent in all packet types except 0-RTT. The CRYPTO
+    frame offers the cryptographic protocol an in-order stream of bytes.
+    CRYPTO frames are functionally identical to STREAM frames, except that
+    they do not bear a stream identifier; they are not flow controlled;
+    and they do not carry markers for optional offset, optional length,
     and the end of the stream.
 */
 typedef struct {
@@ -448,8 +447,8 @@ typedef struct {
 } ql_frame_crypto_t;
 
 /*
-    A server sends a NEW_TOKEN frame (type=0x07) to provide the client 
-    with a token to send in the header of an Initial packet for a future 
+    A server sends a NEW_TOKEN frame (type=0x07) to provide the client
+    with a token to send in the header of an Initial packet for a future
     connection.
 */
 typedef struct {
@@ -458,21 +457,21 @@ typedef struct {
 } ql_frame_new_token_t;
 
 /*
-    STREAM frames implicitly create a stream and carry stream data. 
-    The Type field in the STREAM frame takes the form 0b00001XXX 
-    (or the set of values from 0x08 to 0x0f). The three low-order 
-    bits of the frame type determine the fields that are present in 
+    STREAM frames implicitly create a stream and carry stream data.
+    The Type field in the STREAM frame takes the form 0b00001XXX
+    (or the set of values from 0x08 to 0x0f). The three low-order
+    bits of the frame type determine the fields that are present in
     the frame:
-        The OFF bit (0x04) in the frame type is set to indicate that 
-    there is an Offset field present. When set to 1, the Offset field 
-    is present. When set to 0, the Offset field is absent and the 
-    Stream Data starts at an offset of 0 (that is, the frame contains 
-    the first bytes of the stream, or the end of a stream that includes 
+        The OFF bit (0x04) in the frame type is set to indicate that
+    there is an Offset field present. When set to 1, the Offset field
+    is present. When set to 0, the Offset field is absent and the
+    Stream Data starts at an offset of 0 (that is, the frame contains
+    the first bytes of the stream, or the end of a stream that includes
     no data).
-        The LEN bit (0x02) in the frame type is set to indicate that 
-    there is a Length field present. If this bit is set to 0, the 
+        The LEN bit (0x02) in the frame type is set to indicate that
+    there is a Length field present. If this bit is set to 0, the
     Length field is absent and the Stream Data field extends to t
-    he end of the packet. If this bit is set to 1, the Length field 
+    he end of the packet. If this bit is set to 1, the Length field
     is present.
         The FIN bit (0x01) indicates that the frame
 */
@@ -501,18 +500,18 @@ typedef struct {
 } ql_frame_max_streams_t;
 
 /*
-    A sender SHOULD send a DATA_BLOCKED frame (type=0x14) when it wishes 
-    to send data but is unable to do so due to connection-level flow control; 
-    see Section 4. DATA_BLOCKED frames can be used as input to tuning of 
-    flow control algorithms; 
+    A sender SHOULD send a DATA_BLOCKED frame (type=0x14) when it wishes
+    to send data but is unable to do so due to connection-level flow control;
+    see Section 4. DATA_BLOCKED frames can be used as input to tuning of
+    flow control algorithms;
 */
 typedef struct {
     uint64_t  data_limit;   /* connection-level limit we're blocked at */
 } ql_frame_data_blocked_t;
 
 /*
-    A sender SHOULD send a STREAM_DATA_BLOCKED frame (type=0x15) when it 
-    wishes to send data but is unable to do so due to stream-level flow 
+    A sender SHOULD send a STREAM_DATA_BLOCKED frame (type=0x15) when it
+    wishes to send data but is unable to do so due to stream-level flow
     control. This frame is analogous to DATA_BLOCKED
 */
 typedef struct {
@@ -521,11 +520,11 @@ typedef struct {
 } ql_frame_stream_data_blocked_t;
 
 /*
-    A sender SHOULD send a STREAMS_BLOCKED frame (type=0x16 or 0x17) 
-    when it wishes to open a stream but is unable to do so due to the 
-    maximum stream limit set by its peer; A STREAMS_BLOCKED 
-    frame of type 0x16 is used to indicate reaching the bidirectional 
-    stream limit, and a STREAMS_BLOCKED frame of type 0x17 is used to 
+    A sender SHOULD send a STREAMS_BLOCKED frame (type=0x16 or 0x17)
+    when it wishes to open a stream but is unable to do so due to the
+    maximum stream limit set by its peer; A STREAMS_BLOCKED
+    frame of type 0x16 is used to indicate reaching the bidirectional
+    stream limit, and a STREAMS_BLOCKED frame of type 0x17 is used to
     indicate reaching the unidirectional stream limit.
 */
 typedef struct {
@@ -533,8 +532,8 @@ typedef struct {
 } ql_frame_streams_blocked_t;
 
 /*
-    An endpoint sends a NEW_CONNECTION_ID frame (type=0x18) to provide 
-    its peer with alternative connection IDs that can be used to break 
+    An endpoint sends a NEW_CONNECTION_ID frame (type=0x18) to provide
+    its peer with alternative connection IDs that can be used to break
     linkability when migrating connections;
 */
 typedef struct {
@@ -545,12 +544,12 @@ typedef struct {
 } ql_frame_new_cid_t;
 
 /*
-    An endpoint sends a RETIRE_CONNECTION_ID frame (type=0x19) to 
-    indicate that it will no longer use a connection ID that was 
-    issued by its peer. This includes the connection ID provided 
-    during the handshake. Sending a RETIRE_CONNECTION_ID frame also 
-    serves as a request to the peer to send additional connection 
-    IDs for future use; New connection IDs can be 
+    An endpoint sends a RETIRE_CONNECTION_ID frame (type=0x19) to
+    indicate that it will no longer use a connection ID that was
+    issued by its peer. This includes the connection ID provided
+    during the handshake. Sending a RETIRE_CONNECTION_ID frame also
+    serves as a request to the peer to send additional connection
+    IDs for future use; New connection IDs can be
     delivered to a peer using the NEW_CONNECTION_ID frame
 */
 typedef struct {
@@ -558,8 +557,8 @@ typedef struct {
 } ql_frame_retire_cid_t;
 
 /*
-    Endpoints can use PATH_CHALLENGE frames (type=0x1a) to check 
-    reachability to the peer and for path validation during 
+    Endpoints can use PATH_CHALLENGE frames (type=0x1a) to check
+    reachability to the peer and for path validation during
     connection migration.
 */
 typedef struct {
@@ -574,12 +573,12 @@ typedef struct {
 } ql_frame_path_response_t;
 
 /*
-    An endpoint sends a CONNECTION_CLOSE frame (type=0x1c or 0x1d) 
-    to notify its peer that the connection is being closed. The 
-    CONNECTION_CLOSE frame with a type of 0x1c is used to signal 
-    errors at only the QUIC layer, or the absence of errors 
-    (with the NO_ERROR code). The CONNECTION_CLOSE frame with a 
-    type of 0x1d is used to signal an error with the application 
+    An endpoint sends a CONNECTION_CLOSE frame (type=0x1c or 0x1d)
+    to notify its peer that the connection is being closed. The
+    CONNECTION_CLOSE frame with a type of 0x1c is used to signal
+    errors at only the QUIC layer, or the absence of errors
+    (with the NO_ERROR code). The CONNECTION_CLOSE frame with a
+    type of 0x1d is used to signal an error with the application
     that uses QUIC.
 */
 typedef struct {
@@ -592,7 +591,7 @@ typedef struct {
 } ql_frame_conn_close_t;
 
 /*
-    The server uses a HANDSHAKE_DONE frame (type=0x1e) to signal 
+    The server uses a HANDSHAKE_DONE frame (type=0x1e) to signal
     confirmation of the handshake to the client.
 */
 typedef struct {
@@ -700,8 +699,8 @@ typedef enum {
 
 /* Long header (Initial, 0-RTT, Handshake, Retry) 17.2 */
 /*
-    Long headers are used for packets that are sent prior to the 
-    establishment of 1-RTT keys. Once 1-RTT keys are available, 
+    Long headers are used for packets that are sent prior to the
+    establishment of 1-RTT keys. Once 1-RTT keys are available,
     a sender switches to sending packets using the short header
 */
 typedef struct {
@@ -795,6 +794,9 @@ typedef struct {
     ql_preferred_addr_t preferred_addr;
 } ql_transport_params_t;
 
+/**
+ * @link: https://datatracker.ietf.org/doc/html/rfc9000#name-stream-types-and-identifier
+ */
 typedef enum {
     QL_STREAM_TYPE_CLIENT_BIDI = 0x00,  /* client-initiated bidirectional  2.1 */
     QL_STREAM_TYPE_SERVER_BIDI = 0x01,  /* server-initiated bidirectional  2.1 */
@@ -820,6 +822,9 @@ typedef struct {
 } ql_ack_state_t;
 
 /* 3.1 — Sending stream states */
+/**
+ * @link: https://datatracker.ietf.org/doc/html/rfc9000#name-stream-states
+ */
 typedef enum {
     QL_TX_STREAM_READY      = 0,  /* created, data buffered, not yet sent */
     QL_TX_STREAM_SEND       = 1,  /* STREAM frames being sent */
@@ -1346,7 +1351,7 @@ int  ql_varint_encoded_len(ql_varint_t val){
 */
 int  ql_varint_encode(uint8_t *buf, size_t cap, ql_varint_t val){
     int len = ql_varint_encoded_len(val);
-    
+
     if (cap < (size_t)len) return -1;
     switch (len) {
     case 1:
@@ -1489,7 +1494,7 @@ int  ql_pkt_num_encode(uint8_t *buf, ql_pkt_num_t full_pn,ql_pkt_num_t largest_a
     else return QLITE_ERR_INTERNAL;
 
     for(int i = 0; i< pn_len; i++)
-        buf[pn_len - 1 -i] = (uint8_t)(full_pn >> (i*8)); 
+        buf[pn_len - 1 -i] = (uint8_t)(full_pn >> (i*8));
 
     return pn_len;
 }
@@ -1878,7 +1883,7 @@ int  ql_frame_decode(const uint8_t *buf, size_t len, ql_frame_t *out){
         pos += (size_t)f->reason_length;
         return (int)pos;
     }
-    
+
     case QL_FRAME_HANDSHAKE_DONE:
         return (int)pos;
 
@@ -1917,7 +1922,7 @@ int  ql_udp_socket(const char *bind_addr, uint16_t port){
     /* allow ipv4 client on the ipv6*/
     int ipv6_only = 0;
     setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &ipv6_only, sizeof(ipv6_only));
-    
+
     struct sockaddr_in6 addr6;
     memset(&addr6, 0, sizeof(addr6));
     addr6.sin6_family = AF_INET6;
@@ -2010,7 +2015,7 @@ int  ql_udp_recv(int fd, uint8_t *buf, size_t cap,
     ssize_t n = recvfrom(fd, buf, cap, 0,
                             src ? (struct sockaddr *)src : NULL,
                             src ? &addrlen : NULL);
-                            
+
     if(n>=0){
         if(srclen) *srclen = addrlen;
         return (int)n;
@@ -2556,7 +2561,7 @@ int ql_cid_cmp(const ql_cid_t *a, const ql_cid_t *b){
 int ql_conn_init(ql_conn_t *conn, ql_role_t role, const ql_config_t *cfg){
     if(!conn || !cfg) return QLITE_ERR_ARGS;
     memset(conn, 0, sizeof(*conn));
-    
+
     conn->state = QL_CONN_IDLE;
     conn->role = role;
     conn->cfg = *cfg; /* struct copy: params + callbacks + tuning */
@@ -2716,10 +2721,10 @@ static int cb_send_alert(SSL *ssl, OSSL_ENCRYPTION_LEVEL level, uint8_t alert)
 }
 /**
  * we declare two layers on purpose:
- * 1. ql_tls_t is a bundle of function ptrs (ql_tls_provide_data_fn, 
+ * 1. ql_tls_t is a bundle of function ptrs (ql_tls_provide_data_fn,
  * ql_tls_get_data_fn, ...) plus an opaque tls_ctx.
  * this is how we avoid the hard-linking libssl in the header.
- * 
+ *
  * 2. ql_tls_init/provide_data/get_data/install_keys/handshake_done are the
  * public api the rest of qlite actually call.
  */
