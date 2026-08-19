@@ -10,8 +10,21 @@ TESTS := $(wildcard test/*.c)
 BUILD_DIR := builds
 TARGETS := $(patsubst test/%.c,$(BUILD_DIR)/%,$(TESTS))
 
-.PHONY: all test clean
+.PHONY: all test lint lint-fix clean
 all: test
+
+lint:
+	clang-tidy include/qlite.h -- $(CFLAGS) $(INCLUDES)
+	clang-tidy $(TESTS) -- $(CFLAGS) $(INCLUDES)
+	find include src test \( -name '*.h' -o -name '*.c' \) -print0 \
+		| xargs -0 clang-format --dry-run --Werror
+
+lint-fix:
+	clang-tidy -fix -fix-errors include/qlite.h -- $(CFLAGS) $(INCLUDES)
+	clang-tidy -fix -fix-errors $(TESTS) -- $(CFLAGS) $(INCLUDES)
+	find include src test \( -name '*.h' -o -name '*.c' \) -print0 \
+		| xargs -0 clang-format -i
+
 test: $(TARGETS)
 	@for t in $(TARGETS); do \
 		echo "Running $$t"; \
