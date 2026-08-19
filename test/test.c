@@ -6,6 +6,7 @@
 #include "udp.test.h"
 #include "crypto.test.h"
 #include "cid.test.h"
+#include "tls.test.h"
 
 int ql_tests_run = 0;
 
@@ -116,6 +117,23 @@ int main(void){
     RUN_TEST(test_cid_cmp_null_args);
     RUN_TEST(test_cid_cmp_max_len_roundtrip);
 
+    /* tls callback wiring — chunk 3.2 */
+    RUN_TEST(test_tls_provide_data_forwards_bytes_and_level);
+    RUN_TEST(test_tls_provide_data_propagates_engine_error);
+    RUN_TEST(test_tls_provide_data_levels_are_independent);
+    RUN_TEST(test_tls_get_data_forwards_queued_bytes);
+    RUN_TEST(test_tls_get_data_empty_returns_zero);
+    RUN_TEST(test_tls_get_data_drains_across_multiple_small_reads);
+    RUN_TEST(test_tls_install_keys_populates_and_marks_set);
+    RUN_TEST(test_tls_install_keys_called_once_per_level_across_full_flow);
+    RUN_TEST(test_tls_handshake_done_delegates_to_engine);
+    RUN_TEST(test_tls_mock_handshake_end_to_end);
+    RUN_TEST(test_tls_init_wires_all_seven_callbacks);
+    RUN_TEST(test_tls_init_role_sets_correct_ssl_state);
+    RUN_TEST(test_tls_init_null_args_rejected);
+    RUN_TEST(test_tls_free_is_safe_on_null_and_zeroed);
+    RUN_TEST(test_tls_real_handshake_end_to_end_via_quictls);
+    
     ql_test_summary();
     return 0;
 }
