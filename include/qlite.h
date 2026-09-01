@@ -3138,7 +3138,7 @@ static int impl_get_data(void *tls_ctx, ql_enc_level_t level, uint8_t *buf, size
     size_t avail = ob->len - ob->read_off;
     size_t n     = avail < cap ? avail : cap;
     if (n == 0) {
-        return 0;
+        return 1;
     }
 
     memcpy(buf, ob->buf + ob->read_off, n);
@@ -3307,6 +3307,67 @@ int ql_tls_install_keys(ql_tls_t *tls, ql_enc_level_t level, ql_key_pair_t *keys
 
 bool ql_tls_handshake_done(const ql_tls_t *tls) {
     return tls->is_done(tls->tls_ctx);
+}
+
+/* -------------------------------------------------------------------------
+ * ql_conn_tick — drives the TLS engine each time the caller pumps the
+ * connection. This is the loop the dispatcher comment above refers to.
+ * ------------------------------------------------------------------------- */
+int ql_conn_tick(ql_conn_t *conn, uint64_t now_ms) {
+    (void)now_ms;
+
+    if (!conn) {
+        return QLITE_ERR_ARGS;
+    }
+
+    for (int lvl = 0; lvl < QL_ENC_LEVEL_COUNT; lvl++) {
+        ql_enc_level_t level = (ql_enc_level_t)lvl;
+        ql_crypto_buf_t *cb  = &conn->crypto[level];
+
+        /* ---- 1. Drain outbound handshake bytes at this level ---- */
+        for (;;) {
+            size_t used  = cb->has_data ? (size_t)(cb->tx_offset % sizeof(cb->buf)) : 0;
+            size_t avail = sizeof(cb->buf) - used;
+            if (avail == 0) {
+                break;
+            }
+
+            int n = ql_tls_get_data(&conn->tls, level, cb->buf + used, avail);
+            if (n < 0) {
+                return QLITE_ERR_CRYPTO;
+            }
+            if (n == 0) {
+                break;
+            }
+
+            cb->tx_offset += (uint64_t)n;
+            cb->has_data = true;
+
+            if ((size_t)n < avail) {
+                break;
+            }
+        }
+
+        /* ---- 2. Install keys once per level ---- */
+        ql_key_pair_t *slot   = &conn->keys[level];
+        bool already_installed = slot->read.is_set && slot->write.is_set;
+
+        if (!already_installed) {
+            ql_key_pair_t derived;
+            memset(&derived, 0, sizeof(derived));
+
+            int rc = ql_tls_install_keys(&conn->tls, level, &derived);
+            if (rc == 0 && derived.read.is_set && derived.write.is_set) {
+                conn->keys[level] = derived;
+            }
+        }
+    }
+
+    if (ql_tls_handshake_done(&conn->tls)) {
+        conn->handshake_complete = true;
+    }
+
+    return QLITE_OK;
 }
 
 #if defined(__cplusplus)
